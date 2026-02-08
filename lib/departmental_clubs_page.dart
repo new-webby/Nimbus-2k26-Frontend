@@ -13,6 +13,7 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
   late TextEditingController _searchController;
   String _searchQuery = '';
   int _selectedFilterIndex = 0;
+  String? _activeClubTitle;
 
   final List<String> filters = [
     'All',
@@ -25,7 +26,7 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
     'Arch',
     'MNC',
     'Physics',
-    'Material',
+    'Material'
   ];
 
   @override
@@ -52,7 +53,7 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
-        foregroundColor: AppColors.dark,
+        foregroundColor: AppColors.textPrimary,
         title: const Text(
           'Departmental Clubs',
           style: TextStyle(
@@ -65,18 +66,24 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
           IconButton(
             icon: const Icon(Icons.notifications_none),
             onPressed: () {},
-          ),
+          )
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child: Stack(
           children: [
-            _searchBar(),
-            const SizedBox(height: 12),
-            _filterChips(),
-            const SizedBox(height: 16),
-            Expanded(child: _clubList()),
+            if (_activeClubTitle == null)
+              Column(
+                children: [
+                  _searchBar(),
+                  const SizedBox(height: 12),
+                  _filterChips(),
+                  const SizedBox(height: 16),
+                  Expanded(child: _clubList()),
+                ],
+              ),
+            if (_activeClubTitle != null) _buildExpandedOverlay(),
           ],
         ),
       ),
@@ -88,7 +95,10 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
       controller: _searchController,
       decoration: InputDecoration(
         hintText: 'Search clubs by name or dept',
-        hintStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14),
+        hintStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+        ),
         prefixIcon: const Icon(Icons.search),
         filled: true,
         fillColor: const Color(0xFFF4F6FA),
@@ -108,7 +118,7 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: filters.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               final isSelected = index == _selectedFilterIndex;
               return GestureDetector(
@@ -133,7 +143,7 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
                       fontFamily: 'Inter',
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: isSelected ? Colors.white : AppColors.dark,
+                      color: isSelected ? Colors.white : AppColors.textPrimary,
                     ),
                   ),
                 ),
@@ -144,7 +154,7 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
         const SizedBox(height: 8),
         Container(
           height: 3,
-          color: AppColors.primaryBlue.withValues(alpha: 0.2),
+          color: AppColors.primaryBlue.withOpacity(0.2),
           child: AnimatedAlign(
             alignment: Alignment.lerp(
               Alignment.topLeft,
@@ -166,13 +176,11 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
     );
   }
 
-  // ── Club data with clubId matching kSampleClubs ──────────────────────────
   List<Map<String, dynamic>> _getAllClubs() {
     return [
       {
-        'clubId': 'team-exe',
         'title': 'Team .EXE',
-        'department': 'Computer Science',
+        'department': 'Computer Science ',
         'departmentColor': const Color(0xFFEEF5FF),
         'description':
             'The official technical club of CSE, focusing on web dev, competitive coding, and open source.',
@@ -180,9 +188,8 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
         'filterKey': 'CSE',
       },
       {
-        'clubId': 'hermetica',
         'title': 'Hermetica',
-        'department': 'Chemical',
+        'department': 'Chemical ',
         'departmentColor': const Color(0xFFF0FBEF),
         'description':
             'Innovating in process design and sustainable chemical solutions for the future.',
@@ -190,7 +197,6 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
         'filterKey': 'Chem',
       },
       {
-        'clubId': 'vibhav',
         'title': 'Vibhav',
         'department': 'Electronics & Communication',
         'departmentColor': const Color(0xFFFFF9ED),
@@ -200,9 +206,8 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
         'filterKey': 'ECE',
       },
       {
-        'clubId': 'ojas',
         'title': 'Ojas',
-        'department': 'Electrical',
+        'department': 'Electrical ',
         'departmentColor': const Color.fromARGB(248, 224, 255, 247),
         'description':
             'Lighting up the campus with innovation in power systems and renewable energy.',
@@ -210,18 +215,17 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
         'filterKey': 'Electrical',
       },
       {
-        'clubId': 'medextrous',
         'title': 'Medextrous',
-        'department': 'Mechanical',
+        'department': 'Mechanical ',
         'departmentColor': const Color.fromARGB(255, 240, 200, 200),
-        'description': 'Designing and manufacturing the machines of tomorrow.',
+        'description':
+            'Designing and manufacturing the machines of tomorrow.',
         'imagePath': 'assets/clubs/Medextrous.jpg',
         'filterKey': 'Mech',
       },
       {
-        'clubId': 'c-helix',
         'title': 'C-Helix',
-        'department': 'Civil',
+        'department': 'Civil ',
         'departmentColor': const Color.fromARGB(255, 220, 190, 240),
         'description':
             'Exploring infrastructure, structural design, and sustainable civil engineering projects.',
@@ -229,7 +233,6 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
         'filterKey': 'Civil',
       },
       {
-        'clubId': 'matcom',
         'title': 'Matcom',
         'department': 'Mathematics & Computing',
         'departmentColor': const Color(0xFFEEF5FF),
@@ -239,7 +242,6 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
         'filterKey': 'MNC',
       },
       {
-        'clubId': 'metamorph',
         'title': 'Metamorph',
         'department': 'Materials Science',
         'departmentColor': const Color.fromARGB(255, 240, 245, 180),
@@ -249,7 +251,6 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
         'filterKey': 'Material',
       },
       {
-        'clubId': 'design-o-crafts',
         'title': 'Design O Crafts',
         'department': 'Architecture',
         'departmentColor': const Color.fromARGB(255, 242, 200, 240),
@@ -259,9 +260,8 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
         'filterKey': 'Arch',
       },
       {
-        'clubId': 'team-abraxas',
         'title': 'Team Abraxas',
-        'department': 'Physics',
+        'department': 'Physics ',
         'departmentColor': const Color.fromARGB(255, 200, 235, 210),
         'description':
             'Exploring quantum mechanics, astrophysics, and experimental physics research.',
@@ -274,21 +274,17 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
   List<Map<String, dynamic>> _getFilteredClubs() {
     final allClubs = _getAllClubs();
     return allClubs.where((club) {
-      final matchesSearch =
-          _searchQuery.isEmpty ||
+      final matchesSearch = _searchQuery.isEmpty ||
           club['title'].toLowerCase().contains(_searchQuery) ||
           club['department'].toLowerCase().contains(_searchQuery) ||
           club['description'].toLowerCase().contains(_searchQuery);
 
-      final matchesFilter =
-          _selectedFilterIndex == 0 ||
+      final matchesFilter = _selectedFilterIndex == 0 ||
           club['filterKey'] == filters[_selectedFilterIndex];
 
       return matchesSearch && matchesFilter;
     }).toList();
   }
-
-  
 
   Widget _clubList() {
     final filteredClubs = _getFilteredClubs();
@@ -297,24 +293,133 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
       return Center(
         child: Text(
           'No clubs found',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 16,
+          ),
         ),
       );
     }
 
     return ListView(
       children: filteredClubs
-          .map(
-            (club) => ClubCard(
-              clubId: club['clubId'],        // ← new required field
-              title: club['title'],
-              department: club['department'],
-              departmentColor: club['departmentColor'],
-              description: club['description'],
-              imagePath: club['imagePath'],
-            ),
-          )
+          .map((club) => ClubCard(
+                title: club['title'],
+                department: club['department'],
+                departmentColor: club['departmentColor'],
+                description: club['description'],
+                imagePath: club['imagePath'],
+                onTap: () {
+                  setState(() {
+                    _activeClubTitle = club['title'];
+                  });
+                },
+                expanded: _activeClubTitle == club['title'],
+              ))
           .toList(),
+    );
+  }
+
+  Map<String, dynamic>? _findClub(String title) {
+    try {
+      return _getAllClubs().firstWhere((c) => c['title'] == title);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Widget _buildExpandedOverlay() {
+    if (_activeClubTitle == null) return const SizedBox.shrink();
+    final club = _findClub(_activeClubTitle!);
+    if (club == null) return const SizedBox.shrink();
+
+    return Positioned.fill(
+      child: GestureDetector(
+        onTap: () => setState(() => _activeClubTitle = null),
+        child: Container(
+          color: Colors.transparent,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: GestureDetector(
+            onTap: () {},
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: double.infinity,
+              constraints: BoxConstraints(maxWidth: 800),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 30,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          image: DecorationImage(
+                            image: AssetImage(club['imagePath']),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              club['title'],
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: club['departmentColor'],
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                club['department'],
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => setState(() => _activeClubTitle = null),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    club['description'],
+                    style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
