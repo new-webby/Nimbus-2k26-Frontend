@@ -12,7 +12,6 @@ class CoreClubsPage extends StatefulWidget {
 class _CoreClubsPageState extends State<CoreClubsPage> {
   late TextEditingController _searchController;
   String _searchQuery = '';
-  String? _activeCoreTitle;
 
   @override
   void initState() {
@@ -49,17 +48,11 @@ class _CoreClubsPageState extends State<CoreClubsPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Stack(
+        child: Column(
           children: [
-            if (_activeCoreTitle == null)
-              Column(
-                children: [
-                  _searchBar(),
-                  const SizedBox(height: 16),
-                  Expanded(child: _clubList()),
-                ],
-              ),
-            if (_activeCoreTitle != null) _buildCoreOverlay(),
+            _searchBar(),
+            const SizedBox(height: 16),
+            Expanded(child: _clubList()),
           ],
         ),
       ),
@@ -159,104 +152,12 @@ class _CoreClubsPageState extends State<CoreClubsPage> {
                 title: club['title']!,
                 description: club['description']!,
                 imagePath: club['imagePath']!,
-                onTap: () => setState(() => _activeCoreTitle = club['title']),
-                expanded: _activeCoreTitle == club['title'],
               ))
           .toList(),
     );
   }
 
-  Map<String, String>? _findCoreClub(String title) {
-    try {
-      return _getAllClubs().firstWhere((c) => c['title'] == title);
-    } catch (_) {
-      return null;
-    }
-  }
 
-  Widget _buildCoreOverlay() {
-    if (_activeCoreTitle == null) return const SizedBox.shrink();
-    final club = _findCoreClub(_activeCoreTitle!);
-    if (club == null) return const SizedBox.shrink();
-
-    return Positioned.fill(
-      child: GestureDetector(
-        onTap: () => setState(() => _activeCoreTitle = null),
-        child: Container(
-          color: Colors.transparent,
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-          child: GestureDetector(
-            onTap: () {},
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: double.infinity,
-              constraints: BoxConstraints(maxWidth: 800),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 30,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          image: DecorationImage(
-                            image: AssetImage(club['imagePath']!),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              club['title']!,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => setState(() => _activeCoreTitle = null),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    club['description']!,
-                    style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 // CoreClubCard is now provided by lib/core_club_card.dart

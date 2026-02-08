@@ -13,7 +13,6 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
   late TextEditingController _searchController;
   String _searchQuery = '';
   int _selectedFilterIndex = 0;
-  String? _activeClubTitle;
 
   final List<String> filters = [
     'All',
@@ -71,19 +70,13 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Stack(
+        child: Column(
           children: [
-            if (_activeClubTitle == null)
-              Column(
-                children: [
-                  _searchBar(),
-                  const SizedBox(height: 12),
-                  _filterChips(),
-                  const SizedBox(height: 16),
-                  Expanded(child: _clubList()),
-                ],
-              ),
-            if (_activeClubTitle != null) _buildExpandedOverlay(),
+            _searchBar(),
+            const SizedBox(height: 12),
+            _filterChips(),
+            const SizedBox(height: 16),
+            Expanded(child: _clubList()),
           ],
         ),
       ),
@@ -309,117 +302,10 @@ class _DepartmentalClubsPageState extends State<DepartmentalClubsPage> {
                 departmentColor: club['departmentColor'],
                 description: club['description'],
                 imagePath: club['imagePath'],
-                onTap: () {
-                  setState(() {
-                    _activeClubTitle = club['title'];
-                  });
-                },
-                expanded: _activeClubTitle == club['title'],
               ))
           .toList(),
     );
   }
 
-  Map<String, dynamic>? _findClub(String title) {
-    try {
-      return _getAllClubs().firstWhere((c) => c['title'] == title);
-    } catch (_) {
-      return null;
-    }
-  }
 
-  Widget _buildExpandedOverlay() {
-    if (_activeClubTitle == null) return const SizedBox.shrink();
-    final club = _findClub(_activeClubTitle!);
-    if (club == null) return const SizedBox.shrink();
-
-    return Positioned.fill(
-      child: GestureDetector(
-        onTap: () => setState(() => _activeClubTitle = null),
-        child: Container(
-          color: Colors.transparent,
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-          child: GestureDetector(
-            onTap: () {},
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: double.infinity,
-              constraints: BoxConstraints(maxWidth: 800),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 30,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          image: DecorationImage(
-                            image: AssetImage(club['imagePath']),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              club['title'],
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: club['departmentColor'],
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                club['department'],
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => setState(() => _activeClubTitle = null),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    club['description'],
-                    style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
