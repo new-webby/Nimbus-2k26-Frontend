@@ -3,18 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'timeline/controller/timeline_controller.dart';
-import 'theme.dart';
+import 'models/profile_model.dart';
 import 'screens/home_screen.dart';
+import 'timeline/screens/timeline_screen.dart';
+import 'events_page.dart';
+import 'departmental_clubs_page.dart';
+import 'widgets/bottom_nav.dart';
 
-// Your clubs imports
-import 'package:nimbus_2k26_frontend/departmental_clubs_page.dart';
-import 'core_clubs_page.dart';
-
-import 'events_page.dart'; // make sure file name matches
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => TimelineController(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => TimelineController()),
+        ChangeNotifierProvider(create: (_) => ProfileModel()),
+      ],
       child: const MyApp(),
     ),
   );
@@ -27,13 +29,48 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-       theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xffF5F6FA), // ✅ light UI
+      theme: ThemeData(
+        scaffoldBackgroundColor: const Color(0xffF5F6FA),
         primaryColor: Colors.blue,
         useMaterial3: true,
       ),
+      home: const MainNavigationScreen(),
+    );
+  }
+}
 
-      home: const HomeScreen(),
+class MainNavigationScreen extends StatefulWidget {
+  const MainNavigationScreen({super.key});
+
+  @override
+  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+}
+
+class _MainNavigationScreenState extends State<MainNavigationScreen> {
+  int _currentIndex = 0;
+
+  final List<Widget> _screens = [
+    const HomeScreen(),
+    const TimelineScreen(),
+    const EventsScreen(),
+    const DepartmentalClubsPage(),
+  ];
+
+  void _onNavItemTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _screens[_currentIndex],
+      bottomNavigationBar: MediaQuery.removePadding(
+        context: context,
+        removeBottom: true,
+        child: BottomNav(currentIndex: _currentIndex, onTap: _onNavItemTapped),
+      ),
     );
   }
 }
