@@ -4,7 +4,6 @@ import '../app_colors.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_widgets.dart';
 import 'login_screen.dart';
-import 'otp_screen.dart';
 
 class SignupScreen extends StatelessWidget {
   const SignupScreen({super.key});
@@ -201,14 +200,7 @@ class _SignupView extends StatelessWidget {
                           ? () async {
                               final ok = await auth.signUp();
                               if (ok && context.mounted) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => OtpScreen(
-                                      email: auth.signupEmailController.text,
-                                    ),
-                                  ),
-                                );
+                                Navigator.pushReplacementNamed(context, '/home');
                               }
                             }
                           : null,
@@ -218,36 +210,25 @@ class _SignupView extends StatelessWidget {
                     const OrDivider(),
                     const SizedBox(height: 16),
 
-                    // Social row
-                    Row(
-                      children: [
-                        SocialButton(
-                          label: 'Google',
-                          icon: const Text(
-                            'G',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF4285F4),
-                            ),
-                          ),
-                          onPressed: () {
-                            /* TODO */
-                          },
+                    // Social row — Google only
+                    SocialButton(
+                      label: 'Continue with Google',
+                      icon: const Text(
+                        'G',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF4285F4),
                         ),
-                        const SizedBox(width: 12),
-                        SocialButton(
-                          label: 'GitHub',
-                          icon: const Icon(
-                            Icons.code,
-                            size: 16,
-                            color: Color(0xFF24292E),
-                          ),
-                          onPressed: () {
-                            /* TODO */
-                          },
-                        ),
-                      ],
+                      ),
+                      onPressed: isLoading
+                          ? null
+                          : () async {
+                              final ok = await auth.googleSignIn();
+                              if (ok && context.mounted) {
+                                Navigator.pushReplacementNamed(context, '/home');
+                              }
+                            },
                     ),
                     const SizedBox(height: 24),
 

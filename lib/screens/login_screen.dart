@@ -164,25 +164,18 @@ class _LoginView extends StatelessWidget {
                     const OrDivider(),
                     const SizedBox(height: 16),
 
-                    // Social row
-                    Row(
-                      children: [
-                        SocialButton(
-                          label: 'Google',
-                          icon: _googleIcon(),
-                          onPressed: () {
-                            /* TODO */
-                          },
-                        ),
-                        const SizedBox(width: 12),
-                        SocialButton(
-                          label: 'GitHub',
-                          icon: _githubIcon(),
-                          onPressed: () {
-                            /* TODO */
-                          },
-                        ),
-                      ],
+                    // Social row — Google only
+                    SocialButton(
+                      label: 'Continue with Google',
+                      icon: _googleIcon(),
+                      onPressed: isLoading
+                          ? null
+                          : () async {
+                              final ok = await auth.googleSignIn();
+                              if (ok && context.mounted) {
+                                Navigator.pushReplacementNamed(context, '/home');
+                              }
+                            },
                     ),
                     const SizedBox(height: 24),
 
@@ -240,7 +233,4 @@ class _LoginView extends StatelessWidget {
       color: Color(0xFF4285F4),
     ),
   );
-
-  Widget _githubIcon() =>
-      const Icon(Icons.code, size: 16, color: Color(0xFF24292E));
 }

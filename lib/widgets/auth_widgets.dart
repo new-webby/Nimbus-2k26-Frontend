@@ -388,28 +388,27 @@ class SocialButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: SizedBox(
-        height: 46,
-        child: OutlinedButton.icon(
-          onPressed: onPressed,
-          icon: icon,
-          label: Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-              color: AppColors.dark,
-            ),
+    return SizedBox(
+      width: double.infinity,
+      height: 46,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: icon,
+        label: Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: AppColors.dark,
           ),
-          style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.border, width: 1.5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            backgroundColor: Colors.white,
-            elevation: 0,
-            shadowColor: Colors.transparent,
-          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: AppColors.border, width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          shadowColor: Colors.transparent,
         ),
       ),
     );
