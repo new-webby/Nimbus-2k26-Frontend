@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 class BottomNav extends StatelessWidget {
-  const BottomNav({super.key});
+  final int currentIndex;
+  final Function(int) onTap;
+
+  const BottomNav({required this.currentIndex, required this.onTap, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -25,12 +28,32 @@ class BottomNav extends StatelessWidget {
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: const [
-                _NavItem(icon: Icons.home, label: "Home", selected: true),
-                _NavItem(icon: Icons.calendar_today, label: "Schedule"),
-                SizedBox(width: 40), // space for center button
-                _NavItem(icon: Icons.bar_chart, label: "Rank"),
-                _NavItem(icon: Icons.person, label: "Profile"),
+              children: [
+                _NavItem(
+                  icon: Icons.home,
+                  label: "Home",
+                  selected: currentIndex == 0,
+                  onTap: () => onTap(0),
+                ),
+                _NavItem(
+                  icon: Icons.calendar_today,
+                  label: "Schedule",
+                  selected: currentIndex == 1,
+                  onTap: () => onTap(1),
+                ),
+                const SizedBox(width: 40), // space for center button
+                _NavItem(
+                  icon: Icons.event,
+                  label: "Events",
+                  selected: currentIndex == 2,
+                  onTap: () => onTap(2),
+                ),
+                _NavItem(
+                  icon: Icons.groups,
+                  label: "Clubs",
+                  selected: currentIndex == 3,
+                  onTap: () => onTap(3),
+                ),
               ],
             ),
           ),
@@ -74,35 +97,44 @@ class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
+  final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
     required this.label,
-    this.selected = false,
+    required this.selected,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final color = selected ? Colors.blue : Colors.grey;
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: color, size: 22),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: color,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          constraints: const BoxConstraints(minWidth: 68, minHeight: 54),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: color,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
-
-
-
-
