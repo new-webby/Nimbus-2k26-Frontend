@@ -197,57 +197,73 @@ class _SignupView extends StatelessWidget {
                     PrimaryButton(
                       label: 'Create Account',
                       loading: isLoading,
-                      onPressed: auth.agreedToTerms
-                          ? () async {
-                              final ok = await auth.signUp();
-                              if (ok && context.mounted) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => OtpScreen(
-                                      email: auth.signupEmailController.text,
-                                    ),
-                                  ),
-                                );
-                              }
-                            }
-                          : null,
+                      onPressed: () async {
+                        if (!auth.agreedToTerms) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please agree to the Terms & Conditions'),
+                              backgroundColor: AppColors.red,
+                              behavior: SnackBarBehavior.floating,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                          return;
+                        }
+
+                        auth.clearError();
+                        final ok = await auth.signUp();
+                        if (!context.mounted) return;
+                        
+                        if (ok) {
+                          // Navigate to OTP screen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => OtpScreen(
+                                email: auth.signupEmailController.text,
+                              ),
+                            ),
+                          );
+                        } else {
+                          // Show error from backend (e.g. Email already exists)
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                auth.errorMessage ??
+                                    'Registration failed. Please try again.',
+                              ),
+                              backgroundColor: AppColors.red,
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 4),
+                            ),
+                          );
+                        }
+                      },
                     ),
                     const SizedBox(height: 20),
 
                     const OrDivider(),
                     const SizedBox(height: 16),
 
-                    // Social row
-                    Row(
-                      children: [
-                        SocialButton(
-                          label: 'Google',
-                          icon: const Text(
-                            'G',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF4285F4),
-                            ),
-                          ),
-                          onPressed: () {
-                            /* TODO */
-                          },
+                    // Social row — Google only
+                    SocialButton(
+                      label: 'Continue with Google',
+                      icon: const Text(
+                        'G',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF4285F4),
                         ),
-                        const SizedBox(width: 12),
-                        SocialButton(
-                          label: 'GitHub',
-                          icon: const Icon(
-                            Icons.code,
-                            size: 16,
-                            color: Color(0xFF24292E),
-                          ),
-                          onPressed: () {
-                            /* TODO */
-                          },
-                        ),
-                      ],
+                      ),
+                      onPressed: isLoading
+                          ? null
+                          : () async {
+                              final ok = await auth.googleSignIn();
+                              if (ok && context.mounted) {
+                                Navigator.pushReplacementNamed(context, '/home');
+                              }
+                            },
                     ),
                     const SizedBox(height: 24),
 
