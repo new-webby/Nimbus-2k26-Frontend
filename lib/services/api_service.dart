@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:async';
 
 class ApiService {
   static const String baseUrl = 'https://nimbus-2k26-backend-2.onrender.com';
@@ -56,9 +57,11 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
     } else if (response.statusCode == 401) {
-      throw Exception('Unauthorized — please login again');
+      final msg = body['error'] ?? 'Unauthorized — please login again';
+      throw Exception(msg);
     } else if (response.statusCode == 403) {
-      throw Exception('Forbidden — access denied');
+      final msg = body['error'] ?? 'Forbidden — access denied';
+      throw Exception(msg);
     } else {
       final msg = body['error'] ?? body['message'] ?? response.body;
       throw Exception(msg);
@@ -69,20 +72,29 @@ class ApiService {
 
   /// Send Firebase ID token to backend for verification and receive a JWT.
   Future<Map<String, dynamic>> googleSignIn(String idToken) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/users/auth/google'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({'idToken': idToken}),
-    );
-    
-    final data = _handleResponse(response);
-    if (data['token'] != null) {
-      await _saveToken(data['token']);
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/users/auth/google'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'idToken': idToken}),
+      ).timeout(
+        const Duration(seconds: 90),
+        onTimeout: () => throw Exception(
+          'Server is waking up — this can take up to 60 seconds on first login. Please try again.',
+        ),
+      );
+
+      final data = _handleResponse(response);
+      if (data['token'] != null) {
+        await _saveToken(data['token']);
+      }
+      return data;
+    } on Exception {
+      rethrow;
     }
-    return data;
   }
 
 
@@ -99,7 +111,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl/api/users/profile'),
       headers: _getHeaders(requiresAuth: true),
-    );
+    ).timeout(const Duration(seconds: 30));
     return _handleResponse(response);
   }
 

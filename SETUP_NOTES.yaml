@@ -1,0 +1,55 @@
+# ── Add these to your pubspec.yaml dependencies section ──────────────────────
+#
+# dependencies:
+#   google_sign_in: ^6.2.1
+#   http: ^1.2.1
+#   shared_preferences: ^2.2.3
+#   provider: ^6.1.2      # already present
+#
+# After editing run:  flutter pub get
+#
+# ── Android setup ─────────────────────────────────────────────────────────────
+#
+# 1. In Google Cloud Console → APIs & Services → Credentials:
+#    • Create an "OAuth 2.0 Client ID" of type "Android"
+#    • Package name: your app's applicationId (e.g. com.example.nimbus)
+#    • SHA-1: run  ./gradlew signingReport  in android/ directory
+#    • Create a second client of type "Web application" — copy its Client ID
+#      into AuthProvider._googleClientId (the serverClientId).
+#
+# 2. Download google-services.json from Firebase Console (or Google Cloud
+#    → "Download credentials") and place it at:
+#      android/app/google-services.json
+#
+# 3. In android/app/build.gradle add:
+#      apply plugin: 'com.google.gms.google-services'
+#
+# 4. In android/build.gradle (project-level) add to buildscript > dependencies:
+#      classpath 'com.google.gms:google-services:4.4.1'
+#
+# ── iOS setup ─────────────────────────────────────────────────────────────────
+#
+# 1. Download GoogleService-Info.plist from Google Cloud Console and add to
+#    ios/Runner/ via Xcode (File → Add Files).
+#
+# 2. In ios/Runner/Info.plist add:
+#    <key>GIDClientID</key>
+#    <string>YOUR_IOS_CLIENT_ID.apps.googleusercontent.com</string>
+#
+#    <key>CFBundleURLTypes</key>
+#    <array>
+#      <dict>
+#        <key>CFBundleURLSchemes</key>
+#        <array>
+#          <string>com.googleusercontent.apps.YOUR_IOS_CLIENT_ID</string>
+#        </array>
+#      </dict>
+#    </array>
+#
+# ── Env variable ──────────────────────────────────────────────────────────────
+#
+# Backend .env:
+#   GOOGLE_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com
+#
+# This is the Web client ID, NOT the Android/iOS one.
+# The backend uses it to verify the idToken audience.

@@ -31,9 +31,19 @@ class LoginScreen extends StatelessWidget {
                     return Column(
                       children: [
                         if (auth.status == AuthStatus.loading)
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 24.0),
-                            child: CircularProgressIndicator(),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 24.0),
+                            child: Column(
+                              children: [
+                                const CircularProgressIndicator(),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Signing in… Server may take up to 60s to wake up on first login.',
+                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
                           ),
                         SocialButton(
                           label: 'Continue with Google',
