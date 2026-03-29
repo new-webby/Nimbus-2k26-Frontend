@@ -1,139 +1,179 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import '../models/profile_model.dart';
+import '../services/api_service.dart';
+
+enum AuthStatus { idle, loading, success, error }
 
 class AuthProvider extends ChangeNotifier {
-  // 🔧 Backend URL
-  static const String _baseUrl =
-      'https://nimbus-2k26-backend-2.onrender.com';
+  final ApiService _apiService = ApiService();
 
-  // ⚠️ Replace this with your actual Web Client ID
-  static const String _googleClientId =
-      'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
-
-  // ── State ──
-  bool _isAuthenticated = false;
-  bool _isLoading = false;
+  // ── state ─────────────────────────────────────────────────────────
+  AuthStatus _status = AuthStatus.idle;
   String? _errorMessage;
-  String? _jwtToken;
-  Map<String, dynamic>? _user;
+  bool _isAuthenticated = false;
+  String? _userName;
+  String? _userEmail;
 
-  bool get isAuthenticated => _isAuthenticated;
-  bool get isLoading => _isLoading;
+  AuthStatus get status => _status;
   String? get errorMessage => _errorMessage;
-  String? get jwtToken => _jwtToken;
-  Map<String, dynamic>? get user => _user;
-  String get userName => _user?['name'] ?? '';
-  String get userEmail => _user?['email'] ?? '';
+  bool get isAuthenticated => _isAuthenticated;
+  String? get userName => _userName;
+  String? get userEmail => _userEmail;
 
-  // ── Google Sign-In ──
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    serverClientId: _googleClientId,
-    scopes: ['email', 'profile'],
-  );
+  AuthProvider() {
+    _checkExistingAuth();
+  }
 
-  // ── Init ──
-  Future<void> init() async {
+  /// Check existing token on app startup
+  Future<void> _checkExistingAuth() async {
     final prefs = await SharedPreferences.getInstance();
-    _jwtToken = prefs.getString('jwt_token');
-    final userJson = prefs.getString('user');
-
-    if (_jwtToken != null && userJson != null) {
-      _user = jsonDecode(userJson);
+    final token = prefs.getString('auth_token');
+    
+    if (token != null && token.isNotEmpty) {
       _isAuthenticated = true;
-      notifyListeners();
+      _userName = prefs.getString('user_name');
+      _userEmail = prefs.getString('user_email');
+      _apiService.setToken(token);
+      notifyListeners(); // Show home immediately
+
+      // Refresh profile silently
+      _fetchAndCacheProfile();
     }
   }
 
-  // ── Google Sign-In ──
-  Future<bool> signInWithGoogle() async {
-    _setLoading(true);
-    _errorMessage = null;
-
+  /// Sync the real user name from backend into SharedPreferences
+  Future<void> _fetchAndCacheProfile() async {
     try {
-      final googleUser = await _googleSignIn.signIn();
+      final profileData = await _apiService.getUserProfile();
+      final user = profileData['user'] as Map<String, dynamic>?;
+      final name = user?['full_name'] as String?;
+      final email = user?['email'] as String?;
+      
+      if (name != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_name', name);
+        if (email != null) await prefs.setString('user_email', email);
+        _userName = name;
+        _userEmail = email;
+        notifyListeners();
+      }
+    } catch (_) {
+      // Ignore background refresh errors
+    }
+  }
 
+  /// Push real user name from AuthProvider into ProfileModel
+  void syncProfile(ProfileModel profileModel) {
+    if (_userName != null && _userName!.isNotEmpty) {
+      profileModel.updateName(_userName!);
+    }
+    if (_userEmail != null && _userEmail!.isNotEmpty) {
+      profileModel.updateBio(_userEmail!);
+    }
+  }
+
+  void _setStatus(AuthStatus s, {String? error}) {
+    _status = s;
+    _errorMessage = error;
+    notifyListeners();
+  }
+
+  void clearError() {
+    _errorMessage = null;
+    _status = AuthStatus.idle;
+    notifyListeners();
+  }
+
+  // ── Firebase Google Sign-In ────────────────────────────────────────
+  Future<bool> signInWithGoogle() async {
+    _setStatus(AuthStatus.loading);
+    try {
+      // 1. Trigger Google Sign In flow
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) {
-        _setLoading(false);
+        // User cancelled the sign-in
+        _setStatus(AuthStatus.idle);
         return false;
       }
 
-      final googleAuth = await googleUser.authentication;
-      final idToken = googleAuth.idToken;
-
-      if (idToken == null) {
-        _errorMessage = 'Failed to get Google ID token';
-        _setLoading(false);
-        notifyListeners();
-        return false;
+      // 2. Obtain auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      if (googleAuth.idToken == null) {
+        throw Exception("Failed to get Google ID token.");
       }
 
-      final response = await http.post(
-        Uri.parse('$_baseUrl/api/users/auth/google'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'idToken': idToken}),
+      // 3. Authenticate with Firebase using Google credentials
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
       );
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final User? firebaseUser = userCredential.user;
 
-      final body = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && body['success'] == true) {
-        await _persistSession(
-          body['token'],
-          body['user'],
-        );
-        _setLoading(false);
-        return true;
-      } else {
-        _errorMessage = body['error'] ?? 'Authentication failed';
-        await _googleSignIn.signOut();
-        _setLoading(false);
-        notifyListeners();
-        return false;
+      if (firebaseUser == null) {
+        throw Exception("Firebase sign-in failed.");
       }
+
+      // 4. Get the Firebase ID token
+      final String? firebaseIdToken = await firebaseUser.getIdToken();
+      if (firebaseIdToken == null) {
+        throw Exception("Failed to generate Firebase ID token.");
+      }
+
+      // 5. Send Firebase ID token to our Node.js backend
+      final response = await _apiService.googleSignIn(firebaseIdToken);
+      
+      final token = response['token'] as String;
+      final user = response['user'] as Map<String, dynamic>;
+      
+      _userName = user['name'] as String?;
+      _userEmail = user['email'] as String?;
+
+      // 6. Save token locally
+      final prefs = await SharedPreferences.getInstance();
+      if (_userName != null) await prefs.setString('user_name', _userName!);
+      if (_userEmail != null) await prefs.setString('user_email', _userEmail!);
+      await prefs.setString('auth_token', token);
+      
+      _apiService.setToken(token);
+      _isAuthenticated = true;
+      _setStatus(AuthStatus.success);
+      return true;
+
     } catch (e) {
-      _errorMessage = 'Sign-in error: $e';
-      _setLoading(false);
-      notifyListeners();
+      // Handle NITH email restriction errors gracefully
+      final errorMsg = _cleanError(e.toString());
+      await GoogleSignIn().signOut(); // force logout of google so they can choose a new account next tap
+      _setStatus(AuthStatus.error, error: errorMsg);
       return false;
     }
   }
 
-  // ✅ FIXED: logout method (this was missing in your error)
+  // ── Logout ─────────────────────────────────────────────────────────
   Future<void> logout() async {
-    await _googleSignIn.signOut();
-    await _clearSession();
-    notifyListeners();
-  }
-
-  // ── Helpers ──
-  Future<void> _persistSession(String token, Map<String, dynamic> user) async {
+    await _apiService.logout();
+    await GoogleSignIn().signOut();
+    await FirebaseAuth.instance.signOut();
+    
     final prefs = await SharedPreferences.getInstance();
-
-    await prefs.setString('jwt_token', token);
-    await prefs.setString('user', jsonEncode(user));
-
-    _jwtToken = token;
-    _user = user;
-    _isAuthenticated = true;
-
-    notifyListeners();
-  }
-
-  Future<void> _clearSession() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.remove('jwt_token');
-    await prefs.remove('user');
-
-    _jwtToken = null;
-    _user = null;
+    await prefs.remove('user_name');
+    await prefs.remove('user_email');
+    await prefs.remove('auth_token');
+    
     _isAuthenticated = false;
+    _userName = null;
+    _userEmail = null;
+    _setStatus(AuthStatus.idle);
   }
 
-  void _setLoading(bool value) {
-    _isLoading = value;
-    notifyListeners();
+  String _cleanError(String raw) {
+    if (raw.startsWith('Exception: ')) return raw.substring(11);
+    if (raw.contains('Only @nith.ac.in')) return 'Only @nith.ac.in email addresses are allowed.';
+    return raw;
   }
 }

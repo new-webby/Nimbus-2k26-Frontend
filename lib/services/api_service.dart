@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:async';
 
 class ApiService {
   static const String baseUrl = 'https://nimbus-2k26-backend-2.onrender.com';
@@ -56,9 +57,11 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
     } else if (response.statusCode == 401) {
-      throw Exception('Unauthorized — please login again');
+      final msg = body['error'] ?? 'Unauthorized — please login again';
+      throw Exception(msg);
     } else if (response.statusCode == 403) {
-      throw Exception('Forbidden — access denied');
+      final msg = body['error'] ?? 'Forbidden — access denied';
+      throw Exception(msg);
     } else {
       final msg = body['error'] ?? body['message'] ?? response.body;
       throw Exception(msg);
@@ -67,67 +70,33 @@ class ApiService {
 
   // ── AUTH ENDPOINTS ─────────────────────────────────────────────────
 
-  /// Login user — returns JWT token
-  Future<Map<String, dynamic>> login({
-    required String email,
-    required String password,
-  }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/users/login'),
-      headers: _getHeaders(),
-      body: jsonEncode({'email': email, 'password': password}),
-    );
-    final data = _handleResponse(response);
-    if (data['token'] != null) {
-      await _saveToken(data['token']);
+  /// Send Firebase ID token to backend for verification and receive a JWT.
+  Future<Map<String, dynamic>> googleSignIn(String idToken) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/users/auth/google'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'idToken': idToken}),
+      ).timeout(
+        const Duration(seconds: 90),
+        onTimeout: () => throw Exception(
+          'Server is waking up — this can take up to 60 seconds on first login. Please try again.',
+        ),
+      );
+
+      final data = _handleResponse(response);
+      if (data['token'] != null) {
+        await _saveToken(data['token']);
+      }
+      return data;
+    } on Exception {
+      rethrow;
     }
-    return data;
   }
 
-  /// Send an OTP to the given email
-  Future<Map<String, dynamic>> sendOtp({required String email}) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/users/send-otp'),
-      headers: _getHeaders(),
-      body: jsonEncode({'email': email}),
-    );
-    return _handleResponse(response);
-  }
-
-  /// Register new user — backend accepts {name, email, password, otp}
-  Future<Map<String, dynamic>> register({
-    required String name,
-    required String email,
-    required String password,
-    required String otp,
-  }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/users/register'),
-      headers: _getHeaders(),
-      body: jsonEncode({
-        'name': name,
-        'email': email,
-        'password': password,
-        'otp': otp,
-      }),
-    );
-    return _handleResponse(response);
-  }
-
-  /// Sync Clerk user with backend DB — call once right after Clerk sign-in.
-  /// Sends the Clerk session token as a Bearer token so the backend's
-  /// `protect` middleware recognises it via `getAuth(req).userId`.
-  Future<Map<String, dynamic>> syncClerkUser(String clerkToken) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/users/sync'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $clerkToken',
-      },
-    );
-    return _handleResponse(response);
-  }
 
   /// Logout — clears token locally (no backend logout route)
   Future<void> logout() async {
@@ -142,7 +111,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl/api/users/profile'),
       headers: _getHeaders(requiresAuth: true),
-    );
+    ).timeout(const Duration(seconds: 30));
     return _handleResponse(response);
   }
 

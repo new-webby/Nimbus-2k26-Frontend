@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import 'timeline/controller/timeline_controller.dart';
 import 'models/profile_model.dart';
@@ -13,17 +14,14 @@ import 'widgets/bottom_nav.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Restore any persisted JWT session before the first frame.
-  final authProvider = AuthProvider();
-  await authProvider.init();
+  await Firebase.initializeApp();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => TimelineController()),
         ChangeNotifierProvider(create: (_) => ProfileModel()),
-        ChangeNotifierProvider.value(value: authProvider),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
       child: const MyApp(),
     ),
@@ -51,17 +49,27 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Routes to LoginScreen or MainNavigationScreen based on [AuthProvider.isAuthenticated].
-class AuthWrapper extends StatelessWidget {
+/// Routes to the correct screen based on auth state.
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
 
-    if (auth.isAuthenticated) {
+class _AuthWrapperState extends State<AuthWrapper> {
+  @override
+  Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+
+    if (authProvider.isAuthenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        authProvider.syncProfile(context.read<ProfileModel>());
+      });
       return const MainNavigationScreen();
     }
+    
     return const LoginScreen();
   }
 }
