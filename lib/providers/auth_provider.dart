@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -26,20 +24,26 @@ class AuthProvider extends ChangeNotifier {
   String? get userEmail => _userEmail;
 
   AuthProvider() {
+    _initGoogleSignIn();
     _checkExistingAuth();
+  }
+
+  /// Initialize GoogleSignIn singleton — MUST be called once before any use (v7 requirement)
+  Future<void> _initGoogleSignIn() async {
+    await GoogleSignIn.instance.initialize();
   }
 
   /// Check existing token on app startup
   Future<void> _checkExistingAuth() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
-    
+
     if (token != null && token.isNotEmpty) {
       _isAuthenticated = true;
       _userName = prefs.getString('user_name');
       _userEmail = prefs.getString('user_email');
       _apiService.setToken(token);
-      notifyListeners(); // Show home immediately
+      notifyListeners();
 
       // Refresh profile silently
       _fetchAndCacheProfile();
@@ -53,7 +57,7 @@ class AuthProvider extends ChangeNotifier {
       final user = profileData['user'] as Map<String, dynamic>?;
       final name = user?['full_name'] as String?;
       final email = user?['email'] as String?;
-      
+
       if (name != null) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user_name', name);
@@ -89,66 +93,80 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Firebase Google Sign-In ────────────────────────────────────────
+  // ── Firebase Google Sign-In (google_sign_in v7.x) ─────────────────
   Future<bool> signInWithGoogle() async {
     _setStatus(AuthStatus.loading);
     try {
-      // 1. Trigger Google Sign In flow
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) {
-        // User cancelled the sign-in
-        _setStatus(AuthStatus.idle);
-        return false;
-      }
+      // 1. authenticate() replaces signIn() in v7 — shows system account picker
+      final GoogleSignInAccount googleUser =
+          await GoogleSignIn.instance.authenticate();
 
-      // 2. Obtain auth details from the request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      // 2. idToken is now synchronous in v7
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
       if (googleAuth.idToken == null) {
         throw Exception("Failed to get Google ID token.");
       }
 
-      // 3. Authenticate with Firebase using Google credentials
+      // 3. accessToken now requires explicit scope authorization in v7
+      //    (authentication and authorization are separate in v7)
+      const List<String> scopes = ['email', 'profile'];
+      final clientAuth =
+          await googleUser.authorizationClient.authorizationForScopes(scopes) ??
+          await googleUser.authorizationClient.authorizeScopes(scopes);
+
+      // 4. Build Firebase credential
       final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
+        accessToken: clientAuth.accessToken,
         idToken: googleAuth.idToken,
       );
-      final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+
+      // 5. Sign in to Firebase
+      final UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
       final User? firebaseUser = userCredential.user;
 
       if (firebaseUser == null) {
         throw Exception("Firebase sign-in failed.");
       }
 
-      // 4. Get the Firebase ID token
+      // 6. Get Firebase ID token for backend
       final String? firebaseIdToken = await firebaseUser.getIdToken();
       if (firebaseIdToken == null) {
         throw Exception("Failed to generate Firebase ID token.");
       }
 
-      // 5. Send Firebase ID token to our Node.js backend
+      // 7. Send to Node.js backend
       final response = await _apiService.googleSignIn(firebaseIdToken);
-      
+
       final token = response['token'] as String;
       final user = response['user'] as Map<String, dynamic>;
-      
+
       _userName = user['name'] as String?;
       _userEmail = user['email'] as String?;
 
-      // 6. Save token locally
+      // 8. Persist token locally
       final prefs = await SharedPreferences.getInstance();
       if (_userName != null) await prefs.setString('user_name', _userName!);
       if (_userEmail != null) await prefs.setString('user_email', _userEmail!);
       await prefs.setString('auth_token', token);
-      
+
       _apiService.setToken(token);
       _isAuthenticated = true;
       _setStatus(AuthStatus.success);
       return true;
 
+    } on GoogleSignInException catch (e) {
+      // Handle cancellation cleanly without showing an error
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        _setStatus(AuthStatus.idle);
+        return false;
+      }
+      await GoogleSignIn.instance.signOut();
+      _setStatus(AuthStatus.error, error: e.description ?? 'Google sign-in failed.');
+      return false;
     } catch (e) {
-      // Handle NITH email restriction errors gracefully
       final errorMsg = _cleanError(e.toString());
-      await GoogleSignIn().signOut(); // force logout of google so they can choose a new account next tap
+      await GoogleSignIn.instance.signOut(); // force re-pick on next attempt
       _setStatus(AuthStatus.error, error: errorMsg);
       return false;
     }
@@ -157,14 +175,14 @@ class AuthProvider extends ChangeNotifier {
   // ── Logout ─────────────────────────────────────────────────────────
   Future<void> logout() async {
     await _apiService.logout();
-    await GoogleSignIn().signOut();
+    await GoogleSignIn.instance.signOut();
     await FirebaseAuth.instance.signOut();
-    
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user_name');
     await prefs.remove('user_email');
     await prefs.remove('auth_token');
-    
+
     _isAuthenticated = false;
     _userName = null;
     _userEmail = null;
@@ -173,7 +191,9 @@ class AuthProvider extends ChangeNotifier {
 
   String _cleanError(String raw) {
     if (raw.startsWith('Exception: ')) return raw.substring(11);
-    if (raw.contains('Only @nith.ac.in')) return 'Only @nith.ac.in email addresses are allowed.';
+    if (raw.contains('Only @nith.ac.in')) {
+      return 'Only @nith.ac.in email addresses are allowed.';
+    }
     return raw;
   }
 }
