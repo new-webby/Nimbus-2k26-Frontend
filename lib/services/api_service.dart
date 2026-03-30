@@ -98,9 +98,21 @@ class ApiService {
   }
 
 
-  /// Logout — clears token locally (no backend logout route)
+  /// Logout - clears token locally (no backend logout route)
   Future<void> logout() async {
     await clearToken();
+  }
+
+  /// Wake up the backend before the user taps sign in.
+  Future<void> warmUp() async {
+    try {
+      await http.get(
+        Uri.parse("$baseUrl/api/coreteam"),
+        headers: _getHeaders(),
+      ).timeout(const Duration(seconds: 12));
+    } catch (_) {
+      // Warm-up is best effort only.
+    }
   }
 
   // ── USER ENDPOINTS ─────────────────────────────────────────────────

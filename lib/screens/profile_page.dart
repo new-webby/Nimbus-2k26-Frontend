@@ -4,9 +4,9 @@ import '../providers/auth_provider.dart';
 
 // ── Nimbus color tokens ──────────────────────────────────────────────────────
 class NimbusColors {
-  static const blue = Color(0xFF2563EB);
+  static const blue = Color(0xFF2D5BE3);
   static const blueLight = Color(0xFFEFF4FF);
-  static const blueDark = Color(0xFF1E3A8A);
+  static const blueDark = Color(0xFF1A3BB3);
   static const gold = Color(0xFFF59E0B);
   static const goldLight = Color(0xFFFEF3C7);
   static const green = Color(0xFF10B981);
@@ -20,8 +20,7 @@ class NimbusColors {
   static const textSecondary = Color(0xFF6B7280);
   static const textMuted = Color(0xFF9CA3AF);
   static const border = Color(0xFFE5E7EB);
-  static const cardBg = Color(0xFFF7F8FA);
-  static const appBg = Color(0xFF1A1A2E);
+  static const cardBg = Color(0xFFF5F6FA);
 }
 
 // ── Data models ──────────────────────────────────────────────────────────────
@@ -65,7 +64,6 @@ class PointsActivity {
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
-  // Sample data — replace with your real model/provider
   static const _badges = [
     BadgeItem(emoji: '🏅', label: 'Top Performer', bg: NimbusColors.goldLight),
     BadgeItem(emoji: '💻', label: 'Hackathon Pro', bg: NimbusColors.blueLight),
@@ -128,17 +126,35 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: NimbusColors.cardBg,
-      body: Stack(
-        children: [
-          CustomScrollView(
+    return Consumer<AuthProvider>(
+      builder: (context, auth, _) {
+        // ── Pull real data from Google Sign-In via AuthProvider ──────────
+        final user = auth.user; // FirebaseUser / GoogleSignInAccount
+        final displayName =
+            auth.userName ?? user?.displayName ?? 'Nimbus User';
+        final email = auth.userEmail ?? user?.email ?? '';
+        final photoUrl = user?.photoURL;
+
+        // Derive username handle from email (e.g. "ayush.sharma" from ayush.sharma@nith.ac.in)
+        final handle = email.isNotEmpty
+            ? '@${email.split('@').first}'
+            : '@nith_user';
+
+        return Scaffold(
+          backgroundColor: NimbusColors.cardBg,
+          body: CustomScrollView(
             slivers: [
               _buildSliverAppBar(context),
               SliverToBoxAdapter(
                 child: Column(
                   children: [
-                    _buildAvatarSection(),
+                    _buildAvatarSection(
+                      context: context,
+                      auth: auth,
+                      displayName: displayName,
+                      handle: handle,
+                      photoUrl: photoUrl,
+                    ),
                     const SizedBox(height: 8),
                     _buildRankCard(),
                     const SizedBox(height: 8),
@@ -148,25 +164,19 @@ class ProfilePage extends StatelessWidget {
                     const SizedBox(height: 8),
                     _buildPointsCard(),
                     const SizedBox(height: 24),
-                    _buildLogoutButton(context),
-                    const SizedBox(height: 80), // nav bar clearance
+                    _buildLogoutButton(context, auth),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
             ],
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: _buildBottomNav(),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  // ── Sliver App Bar (cover) ─────────────────────────────────────────────────
+  // ── Sliver App Bar ─────────────────────────────────────────────────────────
   SliverAppBar _buildSliverAppBar(BuildContext context) {
     return SliverAppBar(
       expandedHeight: 110,
@@ -189,10 +199,7 @@ class ProfilePage extends StatelessWidget {
       title: const Text(
         'Profile',
         style: TextStyle(
-          color: Colors.white,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-        ),
+            color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
       ),
       centerTitle: true,
       actions: [
@@ -205,8 +212,7 @@ class ProfilePage extends StatelessWidget {
               color: Colors.white.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.edit_outlined,
-                color: Colors.white, size: 16),
+            child: const Icon(Icons.edit_outlined, color: Colors.white, size: 16),
           ),
         ),
       ],
@@ -216,7 +222,11 @@ class ProfilePage extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [NimbusColors.blueDark, NimbusColors.blue, Color(0xFF3B82F6)],
+              colors: [
+                NimbusColors.blueDark,
+                NimbusColors.blue,
+                Color(0xFF4169E1),
+              ],
             ),
           ),
         ),
@@ -225,14 +235,27 @@ class ProfilePage extends StatelessWidget {
   }
 
   // ── Avatar + Info + Stats ──────────────────────────────────────────────────
-  Widget _buildAvatarSection() {
+  Widget _buildAvatarSection({
+    required BuildContext context,
+    required AuthProvider auth,
+    required String displayName,
+    required String handle,
+    String? photoUrl,
+  }) {
+    // Derive initials for fallback avatar
+    final initials = displayName
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .take(2)
+        .map((w) => w[0].toUpperCase())
+        .join();
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Avatar row
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -242,17 +265,13 @@ class ProfilePage extends StatelessWidget {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
+                    // Profile photo from Google, fallback to initials
                     Container(
                       width: 72,
                       height: 72,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 3),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFF093FB), Color(0xFFF5576C)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.15),
@@ -261,15 +280,15 @@ class ProfilePage extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: const Center(
-                        child: Text(
-                          'A',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
+                      child: ClipOval(
+                        child: photoUrl != null && photoUrl.isNotEmpty
+                            ? Image.network(
+                                photoUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) =>
+                                    _initialsAvatar(initials),
+                              )
+                            : _initialsAvatar(initials),
                       ),
                     ),
                     // Crown badge
@@ -295,7 +314,11 @@ class ProfilePage extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () => _showEditProfileDialog(
+                    context,
+                    auth,
+                    currentName: displayName,
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: NimbusColors.blue,
                     foregroundColor: Colors.white,
@@ -313,24 +336,25 @@ class ProfilePage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 2),
-          // Name
-          const Text(
-            'Ayush Sharma',
-            style: TextStyle(
+          // Name from Google account
+          Text(
+            displayName,
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
               color: NimbusColors.textPrimary,
             ),
           ),
           const SizedBox(height: 2),
-          const Text(
-            '@ayush.sharma · 3rd Year',
-            style: TextStyle(fontSize: 12, color: NimbusColors.textMuted),
+          Text(
+            handle,
+            style: const TextStyle(fontSize: 12, color: NimbusColors.textMuted),
           ),
           const SizedBox(height: 6),
-          // Dept chip
+          // NITH chip
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: NimbusColors.blueLight,
               borderRadius: BorderRadius.circular(20),
@@ -338,11 +362,10 @@ class ProfilePage extends StatelessWidget {
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.layers_outlined,
-                    size: 12, color: NimbusColors.blue),
+                Icon(Icons.school_outlined, size: 12, color: NimbusColors.blue),
                 SizedBox(width: 4),
                 Text(
-                  'Computer Science',
+                  'NIT Hamirpur',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -353,7 +376,6 @@ class ProfilePage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          // Divider + stats
           const Divider(color: NimbusColors.border, height: 1),
           const SizedBox(height: 12),
           IntrinsicHeight(
@@ -370,6 +392,32 @@ class ProfilePage extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Gradient initials avatar (fallback when no photo URL)
+  Widget _initialsAvatar(String initials) {
+    return Container(
+      color: Colors.transparent,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFF093FB), Color(0xFFF5576C)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            initials,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -448,8 +496,8 @@ class ProfilePage extends StatelessWidget {
                           height: 1.2)),
                   SizedBox(height: 2),
                   Text('Top 1% of all participants',
-                      style: TextStyle(
-                          fontSize: 11, color: Colors.white70)),
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.white70)),
                 ],
               ),
             ),
@@ -484,7 +532,7 @@ class ProfilePage extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           itemCount: _badges.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          separatorBuilder: (_, _) => const SizedBox(width: 12),
           itemBuilder: (_, i) {
             final b = _badges[i];
             return Column(
@@ -630,7 +678,8 @@ class ProfilePage extends StatelessWidget {
               Container(
                 width: 9,
                 height: 9,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                decoration:
+                    BoxDecoration(color: color, shape: BoxShape.circle),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -644,7 +693,8 @@ class ProfilePage extends StatelessWidget {
                             color: NimbusColors.textPrimary)),
                     Text(p.date,
                         style: const TextStyle(
-                            fontSize: 10, color: NimbusColors.textMuted)),
+                            fontSize: 10,
+                            color: NimbusColors.textMuted)),
                   ],
                 ),
               ),
@@ -713,7 +763,8 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildLogoutButton(BuildContext context) {
+  // ── Logout Button ──────────────────────────────────────────────────────────
+  Widget _buildLogoutButton(BuildContext context, AuthProvider auth) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: TextButton(
@@ -721,14 +772,16 @@ class ProfilePage extends StatelessWidget {
           minimumSize: const Size.fromHeight(48),
           foregroundColor: Colors.red,
           backgroundColor: Colors.red.withOpacity(0.05),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
         ),
         onPressed: () async {
           final confirm = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
               title: const Text('Log Out'),
-              content: const Text('Are you sure you want to exit your account?'),
+              content: const Text(
+                  'Are you sure you want to exit your account?'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
@@ -736,7 +789,8 @@ class ProfilePage extends StatelessWidget {
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Logout', style: TextStyle(color: Colors.red)),
+                  child: const Text('Logout',
+                      style: TextStyle(color: Colors.red)),
                 ),
               ],
             ),
@@ -744,9 +798,10 @@ class ProfilePage extends StatelessWidget {
 
           if (confirm == true) {
             if (!context.mounted) return;
-            await context.read<AuthProvider>().logout();
+            await auth.logout();
             if (!context.mounted) return;
-            Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+            Navigator.pushNamedAndRemoveUntil(
+                context, '/login', (route) => false);
           }
         },
         child: const Center(
@@ -755,7 +810,8 @@ class ProfilePage extends StatelessWidget {
             children: [
               Icon(Icons.logout, size: 20),
               SizedBox(width: 8),
-              Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('Logout',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -763,65 +819,61 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // ── Bottom nav ─────────────────────────────────────────────────────────────
-  Widget _buildBottomNav() {
-    return Container(
-      height: 64,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: NimbusColors.border)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(Icons.home_outlined, 'Home', active: false),
-          _navItem(Icons.calendar_today_outlined, 'Schedule', active: false),
-          // Centre hub button
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: 46,
-              height: 46,
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: NimbusColors.blue,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: NimbusColors.blue.withOpacity(0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.explore_outlined,
-                  color: Colors.white, size: 22),
+  Future<void> _showEditProfileDialog(
+    BuildContext context,
+    AuthProvider auth, {
+    required String currentName,
+  }) async {
+    final controller = TextEditingController(text: currentName);
+    final messenger = ScaffoldMessenger.of(context);
+
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Edit Profile'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(
+              labelText: 'Display name',
+              hintText: 'Enter your name',
             ),
           ),
-          _navItem(Icons.bar_chart_outlined, 'Rank', active: false),
-          _navItem(Icons.person_outline_rounded, 'Profile', active: true),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, controller.text.trim()),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
-  }
 
-  Widget _navItem(IconData icon, String label, {bool active = false}) {
-    final color =
-        active ? NimbusColors.blue : NimbusColors.textMuted;
-    return GestureDetector(
-      onTap: () {},
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 20, color: color),
-          const SizedBox(height: 3),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w500,
-                  color: color)),
-        ],
-      ),
-    );
+    controller.dispose();
+
+    if (newName == null || newName.isEmpty) {
+      return;
+    }
+
+    final updated = await auth.updateDisplayName(newName);
+
+    if (!context.mounted) return;
+
+    if (updated) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully.')),
+      );
+    } else if (auth.errorMessage != null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(auth.errorMessage!)),
+      );
+    }
   }
 }

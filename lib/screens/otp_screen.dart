@@ -53,8 +53,12 @@ class _OtpScreenState extends State<OtpScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    for (final c in _otpControllers) c.dispose();
-    for (final f in _focusNodes) f.dispose();
+    for (final c in _otpControllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -253,7 +257,9 @@ class _OtpScreenState extends State<OtpScreen> {
                                 final success = await auth.resendOtp();
                                 if (success) {
                                   _startTimer();
-                                  for (final c in _otpControllers) c.clear();
+                                  for (final c in _otpControllers) {
+                                    c.clear();
+                                  }
                                   _focusNodes[0].requestFocus();
                                 } else {
                                   setState(() {

@@ -30,59 +30,71 @@ class BottomNav extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _NavItem(
-                  icon: Icons.home,
+                  icon: Icons.home_outlined,
+                  activeIcon: Icons.home,
                   label: "Home",
                   selected: currentIndex == 0,
                   onTap: () => onTap(0),
                 ),
                 _NavItem(
-                  icon: Icons.calendar_today,
+                  icon: Icons.calendar_today_outlined,
+                  activeIcon: Icons.calendar_today,
                   label: "Schedule",
                   selected: currentIndex == 1,
                   onTap: () => onTap(1),
                 ),
-                const SizedBox(width: 40), // space for center button
+                const SizedBox(width: 56), // space for center button
                 _NavItem(
-                  icon: Icons.event,
-                  label: "Events",
-                  selected: currentIndex == 2,
-                  onTap: () => onTap(2),
-                ),
-                _NavItem(
-                  icon: Icons.groups,
+                  icon: Icons.groups_outlined,
+                  activeIcon: Icons.groups,
                   label: "Clubs",
                   selected: currentIndex == 3,
                   onTap: () => onTap(3),
+                ),
+                _NavItem(
+                  icon: Icons.person_outline_rounded,
+                  activeIcon: Icons.person_rounded,
+                  label: "Profile",
+                  selected: currentIndex == 4,
+                  onTap: () => onTap(4),
                 ),
               ],
             ),
           ),
 
-          // Center floating Scan button
+          // Center floating Scan/Explore button (index 2)
           Positioned(
             top: -20,
             left: 0,
             right: 0,
             child: Center(
-              child: Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: Colors.blue,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      // ignore: deprecated_member_use
-                      color: Colors.blue.withOpacity(0.4),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+              child: GestureDetector(
+                onTap: () => onTap(2),
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1A3BB3), Color(0xFF4169E1)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.qr_code_scanner,
-                  color: Colors.white,
-                  size: 28,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2D5BE3).withOpacity(0.45),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    currentIndex == 2
+                        ? Icons.explore
+                        : Icons.explore_outlined,
+                    color: Colors.white,
+                    size: 26,
+                  ),
                 ),
               ),
             ),
@@ -95,12 +107,14 @@ class BottomNav extends StatelessWidget {
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
+  final IconData activeIcon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
+    required this.activeIcon,
     required this.label,
     required this.selected,
     required this.onTap,
@@ -108,7 +122,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? Colors.blue : Colors.grey;
+    final color = selected ? const Color(0xFF2D5BE3) : Colors.grey;
 
     return Material(
       color: Colors.transparent,
@@ -117,18 +131,19 @@ class _NavItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          constraints: const BoxConstraints(minWidth: 68, minHeight: 54),
+          constraints: const BoxConstraints(minWidth: 64, minHeight: 54),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 22),
+              Icon(selected ? activeIcon : icon, color: color, size: 22),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   color: color,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  fontWeight:
+                      selected ? FontWeight.w700 : FontWeight.w400,
                 ),
               ),
             ],

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../widgets/auth_widgets.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends StatelessWidget {
@@ -9,87 +8,267 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Nimbus branding hero ──────────────────────────────────
-            const AuthHero(
-              title: 'Welcome to Nimbus 👋',
-              subtitle: 'Sign in with your @nith.ac.in email',
-            ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final heroHeight = constraints.maxHeight * 0.35;
 
-            const SizedBox(height: 48),
-
-            // ── Google Sign In Button ───────────────────────────────
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Consumer<AuthProvider>(
-                  builder: (context, auth, _) {
-                    return Column(
-                      children: [
-                        if (auth.status == AuthStatus.loading)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 24.0),
-                            child: Column(
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      height: heroHeight,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFF1A3BB3),
+                              Color(0xFF2D5BE3),
+                              Color(0xFF4169E1),
+                            ],
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(28, 30, 28, 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 82,
+                                height: 82,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.14),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.16),
+                                  ),
+                                ),
+                                child: Image.asset(
+                                  'assets/images/nimbus_logo.webp',
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                              const SizedBox(height: 30),
+                              const Text(
+                                'Welcome to\nNimbus 2k26',
+                                style: TextStyle(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  height: 1.1,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Sign in with your @nith.ac.in account',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - heroHeight,
+                      ),
+                      color: const Color(0xFFF5F6FA),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 32,
+                        ),
+                        child: Consumer<AuthProvider>(
+                          builder: (context, auth, _) {
+                            return Column(
                               children: [
-                                const CircularProgressIndicator(),
-                                const SizedBox(height: 10),
-                                Text(
-                                  'Signing in… Server may take up to 60s to wake up on first login.',
-                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                                  textAlign: TextAlign.center,
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 28,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 16,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        width: 76,
+                                        height: 76,
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF8FAFC),
+                                          borderRadius: BorderRadius.circular(18),
+                                        ),
+                                        child: Image.asset(
+                                          'assets/images/nith_logo.png',
+                                          fit: BoxFit.contain,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      const Text(
+                                        'Use your NITH Google account',
+                                        style: TextStyle(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF111827),
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      const Text(
+                                        'Sign in instantly with your @nith.ac.in\nGoogle account - no password needed.',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF6B7280),
+                                          height: 1.5,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                if (auth.status == AuthStatus.loading)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 16),
+                                    child: Column(
+                                      children: [
+                                        const CircularProgressIndicator(
+                                          color: Color(0xFF2D5BE3),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          'Signing in... Server may take up to 60s to wake up on first login.',
+                                          style: TextStyle(
+                                            color: Colors.grey.shade600,
+                                            fontSize: 12,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                if (auth.errorMessage != null &&
+                                    auth.status != AuthStatus.loading)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 16),
+                                    child: Text(
+                                      auth.errorMessage!,
+                                      style: const TextStyle(
+                                        color: Color(0xFFEF4444),
+                                        fontSize: 13,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 54,
+                                  child: OutlinedButton(
+                                    onPressed: auth.status == AuthStatus.loading
+                                        ? null
+                                        : () async {
+                                            await auth.signInWithGoogle();
+                                          },
+                                    style: OutlinedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      side: const BorderSide(
+                                        color: Color(0xFFE5E7EB),
+                                        width: 1.5,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Image.network(
+                                          'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
+                                          height: 22,
+                                          width: 22,
+                                          errorBuilder: (_, _, _) => const Icon(
+                                            Icons.g_mobiledata,
+                                            size: 26,
+                                            color: Color(0xFF4285F4),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        const Text(
+                                          'Continue with Google',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF111827),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFECFDF5),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.lock_outline,
+                                        size: 13,
+                                        color: Color(0xFF059669),
+                                      ),
+                                      SizedBox(width: 5),
+                                      Text(
+                                        'Restricted to @nith.ac.in only',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF059669),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
-                            ),
-                          ),
-                        SocialButton(
-                          label: 'Continue with Google',
-                          icon: Image.network(
-                            'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
-                            height: 24,
-                            width: 24,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.g_mobiledata, size: 32),
-                          ),
-                          onPressed: auth.status == AuthStatus.loading
-                              ? null
-                              : () async {
-                                  // Navigating to home is handled entirely
-                                  // by the AuthWrapper in main.dart when
-                                  // isAuthenticated flips to true.
-                                  await auth.signInWithGoogle();
-                                },
+                            );
+                          },
                         ),
-                        if (auth.errorMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 24.0),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.red.shade200),
-                              ),
-                              child: Text(
-                                auth.errorMessage!,
-                                style: TextStyle(
-                                  color: Colors.red.shade700,
-                                  fontSize: 14,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

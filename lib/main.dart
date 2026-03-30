@@ -7,6 +7,7 @@ import 'models/profile_model.dart';
 import 'providers/auth_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/profile_page.dart';
 import 'timeline/screens/timeline_screen.dart';
 import 'events_page.dart';
 import 'departmental_clubs_page.dart';
@@ -89,9 +90,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     const TimelineScreen(),
     const EventsScreen(),
     const DepartmentalClubsPage(),
+    const ProfilePage(),
   ];
 
   void _onNavItemTapped(int index) {
+    if (index < 0 || index >= _screens.length) return;
     setState(() {
       _currentIndex = index;
     });
