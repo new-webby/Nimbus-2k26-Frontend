@@ -2,12 +2,11 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("com.google.gms.google-services")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
-    namespace = "com.example.nimbus_2k26_frontend"
+    namespace = "com.appteam.nimbus_2k26_frontend"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,24 +19,27 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(project.property("MYAPP_STORE_FILE") as String)
+            storePassword = project.property("MYAPP_STORE_PASSWORD") as String
+            keyAlias = project.property("MYAPP_KEY_ALIAS") as String
+            keyPassword = project.property("MYAPP_KEY_PASSWORD") as String
+        }
+    }
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.nimbus_2k26_frontend"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        // Required by flutter_appauth for OAuth2 redirect handling
         manifestPlaceholders += mapOf("appAuthRedirectScheme" to "com.example.nimbus_2k26_frontend")
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")  // ← changed from debug
         }
     }
 }
