@@ -47,3 +47,7 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    implementation("com.pusher:pusher-java-client:2.4.2")
+}
