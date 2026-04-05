@@ -13,6 +13,13 @@ import 'events_page.dart';
 import 'departmental_clubs_page.dart';
 import 'widgets/bottom_nav.dart';
 
+// ── Mafia game ──────────────────────────────────────────────────────
+import 'mafia/controller/game_controller.dart';
+import 'mafia/screens/lobby_screen.dart';
+import 'mafia/screens/role_screen.dart';
+import 'mafia/screens/reveal_screen.dart';
+import 'mafia/screens/game_over_screen.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
@@ -23,6 +30,8 @@ void main() async {
         ChangeNotifierProvider(create: (_) => TimelineController()),
         ChangeNotifierProvider(create: (_) => ProfileModel()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        // Mafia game state (Dev 5)
+        ChangeNotifierProvider(create: (_) => GameController()),
       ],
       child: const MyApp(),
     ),
@@ -41,10 +50,21 @@ class MyApp extends StatelessWidget {
         primaryColor: Colors.blue,
         useMaterial3: true,
       ),
+      // mafiaNavKey allows GameController to navigate without BuildContext
+      navigatorKey: mafiaNavKey,
       home: const AppBootstrapScreen(),
       routes: {
         '/home': (context) => const MainNavigationScreen(),
         '/login': (context) => const LoginScreen(),
+        // ── Mafia game screens (Dev 5 owns) ─────────────────────────────────
+        '/mafia/role': (_) => const RoleScreen(),
+        '/mafia/reveal': (_) => const RevealScreen(),
+        '/mafia/game-over': (_) => const GameOverScreen(),
+        // Placeholder routes for screens built by other devs
+        '/mafia/night': (_) => const _MafiaPlaceholder(label: 'Night — Dev 4'),
+        '/mafia/discussion': (_) => const _MafiaPlaceholder(label: 'Discussion — Dev 3'),
+        '/mafia/voting': (_) => const _MafiaPlaceholder(label: 'Voting — Dev 4'),
+        '/mafia/lobby': (_) => const LobbyScreen(),      // Dev 2 ✅
       },
     );
   }
@@ -215,6 +235,29 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         context: context,
         removeBottom: true,
         child: BottomNav(currentIndex: _currentIndex, onTap: _onNavItemTapped),
+      ),
+    );
+  }
+}
+
+// ─── Mafia placeholder (replaced by other devs' screens) ─────────────────────
+class _MafiaPlaceholder extends StatelessWidget {
+  final String label;
+  const _MafiaPlaceholder({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D121B),
+      body: Center(
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            color: Colors.white38,
+            fontSize: 16,
+          ),
+        ),
       ),
     );
   }
