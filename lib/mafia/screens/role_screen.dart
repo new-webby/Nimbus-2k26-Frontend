@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../controller/game_controller.dart';
+import '../models/player_model.dart';
 import '../widgets/role_card.dart';
 
 /// Cinematic role reveal screen.

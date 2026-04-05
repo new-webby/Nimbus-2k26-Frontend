@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../controller/game_controller.dart';
 import '../models/player_model.dart';
+import '../models/room_model.dart';
 import '../widgets/phase_timer.dart';
 
 
