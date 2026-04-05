@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.appteam.nimbus_2k26_frontend_frontend"
+    namespace = "com.appteam.nimbus_2k26_frontend"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -47,7 +47,10 @@ android {
 flutter {
     source = "../.."
 }
+<<<<<<< HEAD
 
 dependencies {
     implementation("com.pusher:pusher-java-client:2.4.2")
 }
+=======
+>>>>>>> ba70c8c63c6599438c4461785c3f2c46fb1e1968
