@@ -48,7 +48,7 @@ class _HeaderWidgetState extends State<HeaderWidget> {
     if (avatarUrl.isEmpty) {
       return _initialsAvatar(initials);
     }
-    
+
     final uri = Uri.tryParse(avatarUrl);
     final isNetwork = uri?.scheme == 'http' || uri?.scheme == 'https';
 

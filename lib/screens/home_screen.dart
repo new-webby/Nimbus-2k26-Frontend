@@ -57,7 +57,7 @@ class HomeScreen extends StatelessWidget {
                             color: const Color(0xFF9D5EF5).withValues(alpha: 0.4)),
                       ),
                       child: const Center(
-                        child: Text('\u{1F3AD}',
+                        child: Text('🎭',
                             style: TextStyle(fontSize: 26)),
                       ),
                     ),
