@@ -38,6 +38,7 @@ flutter:
     - assets/clubs/
     - assets/icons/location.svg
     - assets/images/
+    - assets/images/mafia/
 
   uses-material-design: true
 
