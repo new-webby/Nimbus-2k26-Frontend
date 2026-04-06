@@ -3,7 +3,7 @@ import 'dart:convert';
 import '../models/timeline_event.dart';
 
 class TimelineApi {
-  static const String _baseUrl = 'https://nimbus-2k26-backend-2.onrender.com';
+  static const String _baseUrl = 'https://nimbus-2k26-backend-olhw.onrender.com';
 
   Future<List<TimelineEvent>> fetchTimeline() async {
     final response = await http.get(
