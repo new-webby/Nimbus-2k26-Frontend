@@ -192,6 +192,14 @@ class _RoleBadge extends StatelessWidget {
       case GameRole.CITIZEN:
       case GameRole.PROPHET:
         return const Color(0xFF9CA3AF);
+      case GameRole.HITMAN:
+        return const Color(0xFFF97316);
+      case GameRole.BOUNTY_HUNTER:
+        return const Color(0xFFF59E0B);
+      case GameRole.PROPHET:
+        return const Color(0xFFA855F7);
+      case GameRole.REPORTER:
+        return const Color(0xFF06B6D4);
     }
   }
 }

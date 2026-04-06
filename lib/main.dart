@@ -22,6 +22,7 @@ import 'mafia/screens/game_over_screen.dart';
 import 'mafia/screens/discussion_screen.dart';
 import 'mafia/screens/night_screen.dart';
 import 'mafia/screens/voting_screen.dart';
+import 'mafia/screens/reporter_broadcast_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,13 +61,13 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const MainNavigationScreen(),
         '/login': (context) => const LoginScreen(),
         // ── Mafia game screens (Dev 5 owns) ─────────────────────────────────
-        '/mafia/role': (_) => const RoleScreen(),
-        '/mafia/reveal': (_) => const RevealScreen(),
+        '/mafia/role': (_) => ReporterBroadcastListener(child: const RoleScreen()),
+        '/mafia/reveal': (_) => ReporterBroadcastListener(child: const RevealScreen()),
         '/mafia/game-over': (_) => const GameOverScreen(),
-        // Real game screens
-        '/mafia/night': (_) => const NightScreen(),
-        '/mafia/discussion': (_) => const DiscussionScreen(),
-        '/mafia/voting': (_) => const VotingScreen(),
+        // Real game screens wrapped with ReporterBroadcastListener
+        '/mafia/night': (_) => ReporterBroadcastListener(child: const NightScreen()),
+        '/mafia/discussion': (_) => ReporterBroadcastListener(child: const DiscussionScreen()),
+        '/mafia/voting': (_) => ReporterBroadcastListener(child: const VotingScreen()),
         '/mafia/lobby': (_) => const LobbyScreen(),      // Dev 2 ✅
       },
     );
@@ -90,19 +91,22 @@ class _AppBootstrapScreenState extends State<AppBootstrapScreen> {
   }
 
   Future<void> _startBootstrap() async {
-    
-    // DEV 3: Reconnect Check
-    final auth = context.read<AuthProvider>();
-    final game = context.read<GameController>();
-
+    // Splash delay so the logo has time to render
     await Future.delayed(const Duration(seconds: 1));
-    
-    if (auth.isAuthenticated) {
-      // Attempt to jump back into an active game session
-      // Use the 'uid' from the 'user' getter already in AuthProvider
-      if (auth.user != null) {
-      await game.tryReconnect(auth.user!.uid);
-     }
+
+    if (!mounted) return;
+
+    // ── Reconnect: check if there is an active game session ──────────────────
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.isAuthenticated) {
+      final gc = context.read<GameController>();
+      final userId = authProvider.user?.uid ?? '';
+      if (userId.isNotEmpty) {
+        final reconnected = await gc.tryReconnect(userId);
+        if (reconnected) {
+          return;
+        }
+      }
     }
 
     if (!mounted) return;
