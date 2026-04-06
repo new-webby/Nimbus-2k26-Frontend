@@ -21,7 +21,7 @@ class PusherService extends ChangeNotifier {
       String.fromEnvironment('PUSHER_CLUSTER', defaultValue: 'ap2');
   static const String _baseUrl =
       String.fromEnvironment('API_BASE_URL',
-          defaultValue: 'https://nimbus-2k26-backend-2.onrender.com');
+          defaultValue: 'https://nimbus-2k26-backend-olhw.onrender.com');
 
   final PusherChannelsFlutter _pusher = PusherChannelsFlutter.getInstance();
 
