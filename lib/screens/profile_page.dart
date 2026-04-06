@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 import '../models/profile_model.dart';
 import '../providers/auth_provider.dart';
+import '../main.dart';
 
 // ── Nimbus color tokens ──────────────────────────────────────────────────────
 class NimbusColors {
@@ -456,9 +457,9 @@ class _ProfilePageState extends State<ProfilePage> {
               if (confirm != true || !context.mounted) return;
               await auth.logout();
               if (!context.mounted) return;
-              Navigator.pushNamedAndRemoveUntil(
+              Navigator.pushAndRemoveUntil(
                 context,
-                '/login',
+                MaterialPageRoute(builder: (_) => const AppBootstrapScreen()),
                 (route) => false,
               );
             },
@@ -507,9 +508,9 @@ class _ProfilePageState extends State<ProfilePage> {
               final deleted = await auth.deleteAccount();
               if (!context.mounted) return;
               if (deleted) {
-                Navigator.pushNamedAndRemoveUntil(
+                Navigator.pushAndRemoveUntil(
                   context,
-                  '/login',
+                  MaterialPageRoute(builder: (_) => const AppBootstrapScreen()),
                   (route) => false,
                 );
               } else {

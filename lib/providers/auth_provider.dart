@@ -114,6 +114,12 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void syncProfile(ProfileModel profile) {
+    if (_userName != null) {
+      profile.updateName(_userName!);
+    }
+  }
+
   Future<bool> loginAfterOtp(String otp) async {
     _setStatus(AuthStatus.loading);
     try {
