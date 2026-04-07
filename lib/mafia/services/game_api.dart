@@ -10,9 +10,7 @@ class GameApi {
   GameApi._();
   static final GameApi instance = GameApi._();
 
-  static const String _baseUrl =
-      String.fromEnvironment('API_BASE_URL',
-          defaultValue: 'https://nimbus-2k26-backend-olhw.onrender.com');
+  static const String _baseUrl = 'https://nimbus-2k26-backend-olhw.onrender.com';
 
   // ─── TOKEN ──────────────────────────────────────────────────────────────────
 
