@@ -186,6 +186,7 @@ class _GameOverScreenState extends State<GameOverScreen>
           ),
         ],
       ),
+      ),
     );
   }
 }
