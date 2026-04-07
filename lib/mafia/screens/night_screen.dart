@@ -161,19 +161,19 @@ class _NightScreenState extends State<NightScreen> {
           themeColor = const Color(0xFF10B981);
           hasAction = true;
           actionLabel = controller.nurseMet ? 'Assist Doctor' : 'Assist Player';
-          voteType = 'NURSE_SUPPORT';
+          voteType = 'NURSE_ACTION';
           break;
         case GameRole.BOUNTY_HUNTER:
           if (controller.round == 1) {
             title = 'Bounty VIP';
             subtitle = 'Select the VIP you pledge to protect.';
             actionLabel = 'Pledge to VIP';
-            voteType = 'BOUNTY_VIP';
+            voteType = 'BOUNTY_HUNTER_VIP';
           } else {
             title = 'Bounty Kill';
             subtitle = 'Select a player to hunt down.';
             actionLabel = 'Execute Target';
-            voteType = 'BOUNTY_KILL';
+            voteType = 'BOUNTY_HUNTER_SHOT';
           }
           themeColor = const Color(0xFFF59E0B);
           hasAction = true;
@@ -185,7 +185,7 @@ class _NightScreenState extends State<NightScreen> {
           themeColor = const Color(0xFFD946EF);
           hasAction = true;
           actionLabel = 'Investigate & Broadcast';
-          voteType = 'REPORTER_BROADCAST';
+          voteType = 'REPORTER_EXPOSE';
           break;
         case GameRole.PROPHET:
           title = 'Prophet\'s Rest';
@@ -200,7 +200,7 @@ class _NightScreenState extends State<NightScreen> {
           themeColor = const Color(0xFF991B1B);
           hasAction = true;
           actionLabel = 'Execute Contract';
-          voteType = 'HITMAN_STRIKE';
+          voteType = 'HITMAN_TARGET';
           customWidget = _buildHitmanUI(controller, canVote);
           break;
         case GameRole.CITIZEN:
@@ -359,7 +359,7 @@ class _NightScreenState extends State<NightScreen> {
                                   _showResultDialog(context, result);
                                 }
 
-                                if (mounted) {
+                                if (['COP_INVESTIGATE', 'REPORTER_EXPOSE'].contains(voteType) && mounted) {
                                   // Even if the result string is null, if the call didn't throw an error, we completed it
                                   if (controller.error == null) {
                                     setState(() => _hasLockedAction = true);
