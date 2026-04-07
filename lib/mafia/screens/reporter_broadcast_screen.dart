@@ -253,7 +253,7 @@ class _ReporterBroadcastOverlayState extends State<_ReporterBroadcastOverlay>
             ),
             child: AnimatedBuilder(
               animation: _pulseAnim,
-              builder: (_, __) => Opacity(
+              builder: (_, _) => Opacity(
                 opacity: _pulseAnim.value,
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,

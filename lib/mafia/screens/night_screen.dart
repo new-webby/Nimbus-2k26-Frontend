@@ -86,23 +86,31 @@ class _NightScreenState extends State<NightScreen> {
     final controller = context.watch<GameController>();
     final myRole = controller.myRole ?? GameRole.CITIZEN;
     final isNight = controller.status == GameStatus.NIGHT;
-    
+
     final me = controller.players.firstWhere(
-      (p) => p.userId == controller.myUserId, 
-      orElse: () => const PlayerModel(userId: '', name: '', status: PlayerStatus.ELIMINATED)
+      (p) => p.userId == controller.myUserId,
+      orElse: () => const PlayerModel(
+        userId: '',
+        name: '',
+        status: PlayerStatus.ELIMINATED,
+      ),
     );
     final isAlive = me.isAlive;
     final myVoteTarget = controller.myVoteTarget;
     final hasVoted = controller.isLoading;
 
     // Hitman Lockout (T-5s)
-    final hitmanLocked = myRole == GameRole.HITMAN && controller.timeRemaining <= 5;
+    final hitmanLocked =
+        myRole == GameRole.HITMAN && controller.timeRemaining <= 5;
     // Single-use lock: seed from controller on first build (covers reconnect)
-    if (!_hasLockedAction && controller.reporterUsed && myRole == GameRole.REPORTER) {
+    if (!_hasLockedAction &&
+        controller.reporterUsed &&
+        myRole == GameRole.REPORTER) {
       _hasLockedAction = true;
     }
     // General vote prevention
-    final canVote = isNight && !hasVoted && isAlive && !hitmanLocked && !_hasLockedAction;
+    final canVote =
+        isNight && !hasVoted && isAlive && !hitmanLocked && !_hasLockedAction;
 
     // Config block
     String title = '';
@@ -138,7 +146,8 @@ class _NightScreenState extends State<NightScreen> {
           break;
         case GameRole.COP:
           title = 'Investigation';
-          subtitle = 'Select a player to investigate their alignment. (Once per night)';
+          subtitle =
+              'Select a player to investigate their alignment. (Once per night)';
           themeColor = const Color(0xFF3B82F6);
           hasAction = true;
           actionLabel = 'Investigate Player';
@@ -171,7 +180,8 @@ class _NightScreenState extends State<NightScreen> {
           break;
         case GameRole.REPORTER:
           title = 'Breaking News';
-          subtitle = 'Select a player to globally reveal their alignment tomorrow morning. (One use only)';
+          subtitle =
+              'Select a player to globally reveal their alignment tomorrow morning. (One use only)';
           themeColor = const Color(0xFFD946EF);
           hasAction = true;
           actionLabel = 'Investigate & Broadcast';
@@ -185,7 +195,8 @@ class _NightScreenState extends State<NightScreen> {
           break;
         case GameRole.HITMAN:
           title = 'Hitman Contract';
-          subtitle = 'Select exactly two targets and guess their roles. Locks at T-5s.';
+          subtitle =
+              'Select exactly two targets and guess their roles. Locks at T-5s.';
           themeColor = const Color(0xFF991B1B);
           hasAction = true;
           actionLabel = 'Execute Contract';
@@ -242,12 +253,14 @@ class _NightScreenState extends State<NightScreen> {
                 // Timer
                 if (controller.timeRemaining > 0)
                   PhaseTimer(
-                    endTime: DateTime.now().add(Duration(seconds: controller.timeRemaining)),
+                    endTime: DateTime.now().add(
+                      Duration(seconds: controller.timeRemaining),
+                    ),
                     size: 80,
                   ),
-                  
+
                 const SizedBox(height: 24),
-                
+
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
                   child: Text(
@@ -330,21 +343,23 @@ class _NightScreenState extends State<NightScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: VoteButton(
-                            label: myVoteTarget != null 
-                                ? actionLabel 
+                            label: myVoteTarget != null
+                                ? actionLabel
                                 : 'Select a player',
                             isSelected: myVoteTarget != null,
                             isDisabled: !canVote || myVoteTarget == null,
                             accentColor: themeColor,
                             onPressed: () async {
                               if (canVote && myVoteTarget != null) {
-                                final result = await controller.submitVote(voteType);
+                                final result = await controller.submitVote(
+                                  voteType,
+                                );
                                 if (!context.mounted) return;
                                 if (result != null) {
                                   _showResultDialog(context, result);
                                 }
-                                
-                                if (['COP_INVESTIGATE', 'REPORTER_BROADCAST'].contains(voteType) && mounted) {
+
+                                if (mounted) {
                                   // Even if the result string is null, if the call didn't throw an error, we completed it
                                   if (controller.error == null) {
                                     setState(() => _hasLockedAction = true);
@@ -373,19 +388,42 @@ class _NightScreenState extends State<NightScreen> {
                     child: SizedBox(
                       width: double.infinity,
                       child: VoteButton(
-                        label: _hitmanTargets.length == 2 && _hitmanRoleGuess1 != null && _hitmanRoleGuess2 != null
-                            ? actionLabel 
+                        label:
+                            _hitmanTargets.length == 2 &&
+                                _hitmanRoleGuess1 != null &&
+                                _hitmanRoleGuess2 != null
+                            ? actionLabel
                             : 'Select 2 Targets and Roles',
-                        isSelected: _hitmanTargets.length == 2 && _hitmanRoleGuess1 != null && _hitmanRoleGuess2 != null,
-                        isDisabled: !canVote || _hitmanTargets.length != 2 || _hitmanRoleGuess1 == null || _hitmanRoleGuess2 == null,
+                        isSelected:
+                            _hitmanTargets.length == 2 &&
+                            _hitmanRoleGuess1 != null &&
+                            _hitmanRoleGuess2 != null,
+                        isDisabled:
+                            !canVote ||
+                            _hitmanTargets.length != 2 ||
+                            _hitmanRoleGuess1 == null ||
+                            _hitmanRoleGuess2 == null,
                         accentColor: themeColor,
-                        onPressed: () {
-                          if (canVote && _hitmanTargets.length == 2 && _hitmanRoleGuess1 != null && _hitmanRoleGuess2 != null) {
-                            controller.submitVote(
+                        onPressed: () async {
+                          if (canVote &&
+                              _hitmanTargets.length == 2 &&
+                              _hitmanRoleGuess1 != null &&
+                              _hitmanRoleGuess2 != null) {
+                            final result = await controller.submitVote(
                               voteType,
                               overrideTargets: _hitmanTargets,
-                              overrideRoles: [_hitmanRoleGuess1!, _hitmanRoleGuess2!],
+                              overrideRoles: [
+                                _hitmanRoleGuess1!,
+                                _hitmanRoleGuess2!,
+                              ],
                             );
+                            if (!context.mounted) return;
+                            if (result != null) {
+                              _showResultDialog(context, result);
+                            }
+                            if (controller.error == null) {
+                              setState(() => _hasLockedAction = true);
+                            }
                           }
                         },
                       ),
@@ -395,20 +433,20 @@ class _NightScreenState extends State<NightScreen> {
                   const Padding(
                     padding: EdgeInsets.all(32.0),
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF374151)),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF374151),
+                      ),
                     ),
                   ),
               ],
             ),
           ),
-          
+
           // ── Loading overlay ──────────────────────────────────────────────
           if (controller.isLoading)
             Container(
               color: Colors.black.withValues(alpha: 0.5),
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
+              child: const Center(child: CircularProgressIndicator()),
             ),
 
           // ── Hitman Strike Overlay ──────────────────────────────────
@@ -465,7 +503,7 @@ class _NightScreenState extends State<NightScreen> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -506,21 +544,27 @@ class _NightScreenState extends State<NightScreen> {
               final isSelected = _hitmanTargets.contains(player.userId);
 
               return GestureDetector(
-                onTap: (!canVote || isEliminated || isMe) ? null : () {
-                  setState(() {
-                    if (isSelected) {
-                      _hitmanTargets.remove(player.userId);
-                    } else if (_hitmanTargets.length < 2) {
-                      _hitmanTargets.add(player.userId);
-                    }
-                  });
-                },
+                onTap: (!canVote || isEliminated || isMe)
+                    ? null
+                    : () {
+                        setState(() {
+                          if (isSelected) {
+                            _hitmanTargets.remove(player.userId);
+                          } else if (_hitmanTargets.length < 2) {
+                            _hitmanTargets.add(player.userId);
+                          }
+                        });
+                      },
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF991B1B).withValues(alpha: 0.2) : const Color(0xFF1C2333),
+                    color: isSelected
+                        ? const Color(0xFF991B1B).withValues(alpha: 0.2)
+                        : const Color(0xFF1C2333),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isSelected ? const Color(0xFF991B1B) : Colors.transparent,
+                      color: isSelected
+                          ? const Color(0xFF991B1B)
+                          : Colors.transparent,
                       width: 2,
                     ),
                   ),
@@ -530,10 +574,17 @@ class _NightScreenState extends State<NightScreen> {
                       children: [
                         CircleAvatar(
                           radius: 20,
-                          backgroundColor: isEliminated ? const Color(0xFF374151) : const Color(0xFF3B5BDB),
+                          backgroundColor: isEliminated
+                              ? const Color(0xFF374151)
+                              : const Color(0xFF3B5BDB),
                           child: Text(
-                            player.name.isNotEmpty ? player.name[0].toUpperCase() : '?',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                            player.name.isNotEmpty
+                                ? player.name[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -542,7 +593,9 @@ class _NightScreenState extends State<NightScreen> {
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 11,
-                            color: isEliminated ? const Color(0xFF6B7280) : Colors.white,
+                            color: isEliminated
+                                ? const Color(0xFF6B7280)
+                                : Colors.white,
                           ),
                           textAlign: TextAlign.center,
                           maxLines: 1,
@@ -573,14 +626,18 @@ class _NightScreenState extends State<NightScreen> {
             _buildRoleDropdown(
               label: 'Target 1 (${_getName(controller, _hitmanTargets[0])})',
               value: _hitmanRoleGuess1,
-              onChanged: canVote ? (val) => setState(() => _hitmanRoleGuess1 = val) : null,
+              onChanged: canVote
+                  ? (val) => setState(() => _hitmanRoleGuess1 = val)
+                  : null,
             ),
             const SizedBox(height: 12),
             if (_hitmanTargets.length > 1)
               _buildRoleDropdown(
                 label: 'Target 2 (${_getName(controller, _hitmanTargets[1])})',
                 value: _hitmanRoleGuess2,
-                onChanged: canVote ? (val) => setState(() => _hitmanRoleGuess2 = val) : null,
+                onChanged: canVote
+                    ? (val) => setState(() => _hitmanRoleGuess2 = val)
+                    : null,
               ),
           ],
         ],
@@ -596,10 +653,21 @@ class _NightScreenState extends State<NightScreen> {
     }
   }
 
-  Widget _buildRoleDropdown({required String label, required String? value, required ValueChanged<String?>? onChanged}) {
-    // Exclude COP from valid hitman targets based on design spec! 
-    final roles = ['DOCTOR', 'NURSE', 'REPORTER', 'BOUNTY_HUNTER', 'PROPHET', 'CITIZEN'];
-    
+  Widget _buildRoleDropdown({
+    required String label,
+    required String? value,
+    required ValueChanged<String?>? onChanged,
+  }) {
+    // Exclude COP from valid hitman targets based on design spec!
+    final roles = [
+      'DOCTOR',
+      'NURSE',
+      'REPORTER',
+      'BOUNTY_HUNTER',
+      'PROPHET',
+      'CITIZEN',
+    ];
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
@@ -609,7 +677,14 @@ class _NightScreenState extends State<NightScreen> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
-          hint: Text(label, style: const TextStyle(color: Colors.white54, fontSize: 13, fontFamily: 'Inter')),
+          hint: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 13,
+              fontFamily: 'Inter',
+            ),
+          ),
           isExpanded: true,
           dropdownColor: const Color(0xFF1C2333),
           icon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
@@ -617,7 +692,14 @@ class _NightScreenState extends State<NightScreen> {
           items: roles.map((r) {
             return DropdownMenuItem<String>(
               value: r,
-              child: Text(r, style: const TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'Inter')),
+              child: Text(
+                r,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontFamily: 'Inter',
+                ),
+              ),
             );
           }).toList(),
         ),
@@ -706,25 +788,31 @@ class _HitmanStrikeOverlayState extends State<_HitmanStrikeOverlay>
                       final uid = d['userId'] as String? ?? '';
                       String name = 'Unknown';
                       try {
-                        final p = widget.players
-                            .firstWhere((p) => p.userId == uid);
+                        final p = widget.players.firstWhere(
+                          (p) => p.userId == uid,
+                        );
                         name = p.name ?? 'Unknown';
                       } catch (_) {}
                       return Container(
                         margin: const EdgeInsets.symmetric(
-                            horizontal: 32, vertical: 6),
+                          horizontal: 32,
+                          vertical: 6,
+                        ),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF991B1B).withValues(alpha: 0.12),
+                          color: const Color(
+                            0xFF991B1B,
+                          ).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: const Color(0xFFFF6B00).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFFFF6B00,
+                            ).withValues(alpha: 0.3),
                           ),
                         ),
                         child: Row(
                           children: [
-                            const Text('💀',
-                                style: TextStyle(fontSize: 24)),
+                            const Text('💀', style: TextStyle(fontSize: 24)),
                             const SizedBox(width: 14),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -743,8 +831,9 @@ class _HitmanStrikeOverlayState extends State<_HitmanStrikeOverlay>
                                   style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 12,
-                                    color: const Color(0xFFFF6B00)
-                                        .withValues(alpha: 0.8),
+                                    color: const Color(
+                                      0xFFFF6B00,
+                                    ).withValues(alpha: 0.8),
                                   ),
                                 ),
                               ],
