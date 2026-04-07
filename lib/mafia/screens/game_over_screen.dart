@@ -188,9 +188,9 @@ class _GameOverScreenState extends State<GameOverScreen>
           ),
         ],
       ),
-    ),
-  );
-}
+      ),
+    );
+  }
 }
 
 // ─── WINNER BANNER ────────────────────────────────────────────────────────────
