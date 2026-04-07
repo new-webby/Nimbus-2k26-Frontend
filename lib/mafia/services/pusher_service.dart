@@ -19,18 +19,9 @@ class PusherService extends ChangeNotifier {
   static final PusherService instance = PusherService._();
 
   bool get isConnected => _connected;
-  static const String _appKey = String.fromEnvironment(
-    'PUSHER_APP_KEY',
-    defaultValue: '',
-  );
-  static const String _cluster = String.fromEnvironment(
-    'PUSHER_CLUSTER',
-    defaultValue: 'ap2',
-  );
-  static const String _baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'https://nimbus-2k26-backend-olhw.onrender.com',
-  );
+  static const String _appKey = '9abb93acdbad87f7e0cb';
+  static const String _cluster = 'ap2';
+  static const String _baseUrl = 'https://nimbus-2k26-backend-olhw.onrender.com';
 
   final PusherChannelsFlutter _pusher = PusherChannelsFlutter.getInstance();
 
