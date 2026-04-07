@@ -18,8 +18,8 @@ final GlobalKey<NavigatorState> mafiaNavKey = GlobalKey<NavigatorState>();
 /// Central state manager for the Mafia game.
 ///
 /// Lifecycle:
-///   [init]         → call when entering game (from lobby or reconnect)
-///   [dispose]      → call when leaving game (home, game over)
+///   [init]        → call when entering game (from lobby or reconnect)
+///   [dispose]     → call when leaving game (home, game over)
 ///
 /// All Pusher events are handled here and translated into state + navigation.
 class GameController extends ChangeNotifier {
@@ -34,10 +34,18 @@ class GameController extends ChangeNotifier {
   bool isReconnecting = false;
   bool isLoading = false;
   String? error;
-  DateTime? get phaseEndsAt => _phaseEndsAt;
 
   /// The player eliminated this round — set during REVEAL phase.
+  /// Kept for backward compat with single-death RevealScreen.
   PlayerModel? revealedPlayer;
+
+  /// All deaths that occurred during the night/day (0–N entries).
+  /// Powers the morning reveal multi-card carousel.
+  List<DeathEvent> morningDeaths = [];
+
+  /// Set when a `reporter-broadcast` event fires. Cleared by the overlay
+  /// after the player dismisses it.
+  ReporterBroadcast? pendingBroadcast;
 
   /// Timer countdown in seconds (mirrors backend phaseEndsAt).
   int timeRemaining = 0;
@@ -45,31 +53,7 @@ class GameController extends ChangeNotifier {
   /// Whether the local role card reveal animation has been shown.
   bool roleCardSeen = false;
 
-  /// The player the current user has selected to vote for.
-  String? myVoteTarget;
-
-<<<<<<< Updated upstream
-  /// Whether the Nurse has found the Doctor yet (used to update Nurse UI).
-  bool nurseMet = false;
-
-  /// Whether the Reporter has already used their one-time broadcast ability.
-  bool reporterUsed = false;
-
-  /// Whether the game is running in developer mode (bots fill empty slots, all roles visible).
-  bool devMode = false;
-
-  /// Deaths reported at the start of DISCUSSION (from NIGHT resolution).
-  List<DeathEvent> nightDeaths = [];
-
-  /// Reporter broadcast — non-null if a reporter exposed a player this round.
-  Map<String, dynamic>? reporterBroadcast;
-
-  /// Hitman strike event — non-null when T-5s kill fires.
-  Map<String, dynamic>? hitmanStrikeEvent;
-
-=======
->>>>>>> Stashed changes
-  // ── Private ─────────────────────────────────────────────────────────────────
+  // ─ Private ──────────────────────────────────────────────────────────────────────────────
   Timer? _countdownTimer;
   DateTime? _phaseEndsAt;
 
@@ -77,8 +61,8 @@ class GameController extends ChangeNotifier {
   StreamSubscription<Map<String, dynamic>>? _roleSub;
   StreamSubscription<Map<String, dynamic>>? _gameEndSub;
   StreamSubscription<Map<String, dynamic>>? _voteSub;
-  StreamSubscription<Map<String, dynamic>>? _chatSub;
-  StreamSubscription<Map<String, dynamic>>? _hitmanStrikeSub; // NEW
+  StreamSubscription<Map<String, dynamic>>? _reporterSub;
+  StreamSubscription<Map<String, dynamic>>? _hitmanSub;
 
   final GameApi _api = GameApi.instance;
   final PusherService _pusher = PusherService.instance;
@@ -175,17 +159,18 @@ class GameController extends ChangeNotifier {
     _roleSub?.cancel();
     _gameEndSub?.cancel();
     _voteSub?.cancel();
-    _chatSub?.cancel();
-    _hitmanStrikeSub?.cancel();
+    _reporterSub?.cancel();
+    _hitmanSub?.cancel();
 
     _phaseSub = _pusher.onPhaseResolved.listen(_handlePhaseResolved);
     _roleSub = _pusher.onRoleAssigned.listen(_handleRoleAssigned);
     _gameEndSub = _pusher.onGameEnded.listen(_handleGameEnded);
-    _chatSub = _pusher.onChatMessage.listen((_) => notifyListeners());
-    _hitmanStrikeSub = _pusher.onHitmanStrike.listen(_handleHitmanStrike);
     _voteSub = _pusher.onVoteUpdated.listen((data) {
       notifyListeners();
     });
+    _reporterSub =
+        _pusher.onReporterBroadcast.listen(_handleReporterBroadcast);
+    _hitmanSub = _pusher.onHitmanStrike.listen(_handleHitmanStrike);
   }
 
   // ─── EVENT HANDLERS ─────────────────────────────────────────────────────────
@@ -198,48 +183,59 @@ class GameController extends ChangeNotifier {
     _phaseEndsAt =
         phaseEndsAtRaw != null ? DateTime.tryParse(phaseEndsAtRaw) : null;
 
-    // ── Parse deaths array (NIGHT → DISCUSSION transition) ─────────────────
+    // ─ Parse multi-death array (new format) ─────────────────────────────────────
     final rawDeaths = data['deaths'] as List<dynamic>?;
     if (rawDeaths != null && rawDeaths.isNotEmpty) {
-      nightDeaths = rawDeaths
-          .map((d) => DeathEvent.fromJson(d as Map<String, dynamic>))
+      morningDeaths = rawDeaths
+          .map((d) => DeathEvent.fromJson(
+              d as Map<String, dynamic>, players))
           .toList();
-      // Mark those players as ELIMINATED in local state
-      final deadUserIds = nightDeaths.map((d) => d.userId).toSet();
+      // Mark eliminated players
+      final deadIds = morningDeaths.map((d) => d.player.userId).toSet();
       players = players.map((p) {
-        if (deadUserIds.contains(p.userId)) {
+        if (deadIds.contains(p.userId)) {
           return p.copyWith(status: PlayerStatus.ELIMINATED);
         }
         return p;
       }).toList();
     } else {
-      nightDeaths = [];
+      // ─ Backward compat: single killedPlayerId ─────────────────────────────────
+      final killedId = data['killedPlayerId'] as String?;
+      if (killedId != null) {
+        players = players.map((p) {
+          if (p.userId == killedId) {
+            return p.copyWith(status: PlayerStatus.ELIMINATED);
+          }
+          return p;
+        }).toList();
+        final dead = players.firstWhere(
+          (p) => p.userId == killedId,
+          orElse: () => PlayerModel(
+              userId: killedId, name: '?', status: PlayerStatus.ELIMINATED),
+        );
+        morningDeaths = [
+          DeathEvent(player: dead, cause: DeathCause.MAFIA_KILL)
+        ];
+      } else {
+        morningDeaths = [];
+      }
     }
 
-    // ── Reporter broadcast ──────────────────────────────────────────────────
-    final rb = data['reporterBroadcast'];
-    reporterBroadcast = (rb is Map<String, dynamic>) ? rb : null;
-
-    // ── Update revealed player from eliminatedPlayerId (VOTING → REVEAL) ───
+    // Legacy single-player compat
     final eliminatedId = data['eliminatedPlayerId'] as String?;
     revealedPlayer = eliminatedId != null
         ? players.cast<PlayerModel?>().firstWhere(
             (p) => p?.userId == eliminatedId,
             orElse: () => null,
           )
-        : null;
+        : morningDeaths.isNotEmpty
+            ? morningDeaths.first.player
+            : null;
 
     status = GameStatus.values.firstWhere(
       (s) => s.name == phase,
       orElse: () => status,
     );
-
-    // Reset local vote target when phase changes
-    myVoteTarget = null;
-<<<<<<< Updated upstream
-    hitmanStrikeEvent = null; // clear between rounds
-=======
->>>>>>> Stashed changes
 
     if (_phaseEndsAt != null) _startCountdown(_phaseEndsAt!);
 
@@ -256,17 +252,8 @@ class GameController extends ChangeNotifier {
       );
       roleCardSeen = false;
       notifyListeners();
-      // Subscribe to team channel now that role is known
-      if (roomCode != null) {
-        _pusher.subscribeTeamChannel(roleStr, roomCode!);
-      }
       _navigate('/mafia/role');
     }
-  }
-
-  void _handleHitmanStrike(Map<String, dynamic> data) {
-    hitmanStrikeEvent = data;
-    notifyListeners();
   }
 
   void _handleGameEnded(Map<String, dynamic> data) {
@@ -279,6 +266,8 @@ class GameController extends ChangeNotifier {
         .map((p) => PlayerModel.fromJson(p as Map<String, dynamic>))
         .toList();
 
+    morningDeaths = [];
+    pendingBroadcast = null;
     _stopCountdown();
     notifyListeners();
 
@@ -286,6 +275,45 @@ class GameController extends ChangeNotifier {
     _api.clearActiveRoom();
 
     _navigate('/mafia/game-over');
+  }
+
+  // ─ Reporter Broadcast ────────────────────────────────────────────────────────────
+
+  void _handleReporterBroadcast(Map<String, dynamic> data) {
+    final playerName = data['playerName'] as String? ?? '?';
+    final roleStr = data['role'] as String? ?? '';
+    final role = GameRole.values.firstWhere(
+      (r) => r.name == roleStr,
+      orElse: () => GameRole.CITIZEN,
+    );
+    pendingBroadcast = ReporterBroadcast(playerName: playerName, role: role);
+    notifyListeners();
+  }
+
+  /// Call from the overlay widget once the broadcast has been shown.
+  void dismissBroadcast() {
+    pendingBroadcast = null;
+    notifyListeners();
+  }
+
+  // ─ Hitman Strike ───────────────────────────────────────────────────────────────────
+
+  void _handleHitmanStrike(Map<String, dynamic> data) {
+    // hitman-strike fires at T-5s; earlyDeaths are added to morningDeaths
+    // when phase-resolved fires at T-0. Here we just update player statuses.
+    final rawKilled = data['killed'] as List<dynamic>? ?? [];
+    for (final entry in rawKilled) {
+      final id = entry is Map ? entry['playerId'] as String? : entry as String?;
+      if (id != null) {
+        players = players.map((p) {
+          if (p.userId == id) {
+            return p.copyWith(status: PlayerStatus.ELIMINATED);
+          }
+          return p;
+        }).toList();
+      }
+    }
+    notifyListeners();
   }
 
   // ─── ROUTING ────────────────────────────────────────────────────────────────
@@ -351,83 +379,11 @@ class GameController extends ChangeNotifier {
 
   // ─── ACTIONS ────────────────────────────────────────────────────────────────
 
-  /// Sends a lynch vote or a special action (kill/save) to the API.
-  Future<void> performAction(String targetId) async {
-    String actionType = (status == GameStatus.VOTING) ? "VOTE" : "KILL";
-    try {
-      await _api.postAction(roomCode!, targetId, actionType);
-    } catch (e) {
-      debugPrint("Action Failed: $e");
-    }
-  }
-
   /// Mark role card as seen — call from RoleScreen's "Tap to continue".
   void markRoleCardSeen() {
     roleCardSeen = true;
     notifyListeners();
     _navigate('/mafia/night');
-  }
-
-  /// Sets the local user's selected voting target.
-  void setVoteTarget(String? userId) {
-    if (myVoteTarget == userId) {
-      myVoteTarget = null; // Map tap again to deselect
-    } else {
-      myVoteTarget = userId;
-    }
-    notifyListeners();
-  }
-
-<<<<<<< Updated upstream
-  void clearHitmanStrike() {
-    hitmanStrikeEvent = null;
-    notifyListeners();
-  }
-
-=======
->>>>>>> Stashed changes
-  /// Submits the vote via the API.
-  /// If [overrideTargets] or [overrideRoles] are provided, they are used instead of [myVoteTarget].
-  Future<String?> submitVote(
-    String voteType, {
-    bool isSkip = false,
-    List<String>? overrideTargets,
-    List<String>? overrideRoles,
-  }) async {
-    if (roomCode == null) return null;
-    
-    List<String>? targets = overrideTargets;
-    if (targets == null && !isSkip) {
-      if (myVoteTarget != null) {
-        targets = [myVoteTarget!];
-      } else {
-        error = 'Please select a player first.';
-        notifyListeners();
-        return null;
-      }
-    }
-
-    try {
-      isLoading = true;
-      error = null;
-      notifyListeners();
-
-      final result = await _api.submitVote(
-        roomCode!, 
-        voteType,
-        targets: targets,
-        roles: overrideRoles,
-      );
-      
-      isLoading = false;
-      notifyListeners();
-      return result;
-    } catch (e) {
-      isLoading = false;
-      error = e.toString();
-      notifyListeners();
-      return null;
-    }
   }
 
   /// Full cleanup — call when player leaves game or hits Home.
@@ -437,8 +393,8 @@ class GameController extends ChangeNotifier {
     _roleSub?.cancel();
     _gameEndSub?.cancel();
     _voteSub?.cancel();
-    _chatSub?.cancel();
-    _hitmanStrikeSub?.cancel();
+    _reporterSub?.cancel();
+    _hitmanSub?.cancel();
     await _pusher.disconnect();
     await _api.clearActiveRoom();
     // Reset state
@@ -448,15 +404,8 @@ class GameController extends ChangeNotifier {
     winner = null;
     roomCode = null;
     roleCardSeen = false;
-    myVoteTarget = null;
-<<<<<<< Updated upstream
-    nightDeaths = [];
-    reporterBroadcast = null;
-    hitmanStrikeEvent = null;
-    nurseMet = false;
-    reporterUsed = false;
-=======
->>>>>>> Stashed changes
+    morningDeaths = [];
+    pendingBroadcast = null;
     notifyListeners();
   }
 
@@ -467,8 +416,21 @@ class GameController extends ChangeNotifier {
     _roleSub?.cancel();
     _gameEndSub?.cancel();
     _voteSub?.cancel();
-    _chatSub?.cancel();
-    _hitmanStrikeSub?.cancel();
+    _reporterSub?.cancel();
+    _hitmanSub?.cancel();
     super.dispose();
   }
+}
+
+// ─── REPORTER BROADCAST DATA ──────────────────────────────────────────────────
+
+/// Immutable data object set on [GameController.pendingBroadcast] when
+/// a `reporter-broadcast` Pusher event arrives.
+/// The [ReporterBroadcastOverlay] widget reads this and calls
+/// [GameController.dismissBroadcast] once shown.
+class ReporterBroadcast {
+  final String playerName;
+  final GameRole role;
+
+  const ReporterBroadcast({required this.playerName, required this.role});
 }

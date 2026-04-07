@@ -18,12 +18,10 @@ import 'mafia/screens/lobby_screen.dart';
 import 'mafia/screens/role_screen.dart';
 import 'mafia/screens/reveal_screen.dart';
 import 'mafia/screens/game_over_screen.dart';
-<<<<<<< Updated upstream
 import 'mafia/screens/discussion_screen.dart';
-=======
->>>>>>> Stashed changes
 import 'mafia/screens/night_screen.dart';
 import 'mafia/screens/voting_screen.dart';
+import 'mafia/screens/reporter_broadcast_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,19 +46,14 @@ class MyApp extends StatelessWidget {
       routes: {
         '/home': (context) => const MainNavigationScreen(),
         '/login': (context) => const LoginScreen(),
-        '/mafia/role': (_) => const RoleScreen(),
-        '/mafia/reveal': (_) => const RevealScreen(),
+        // ── Mafia game screens (Dev 5 owns) ─────────────────────────────────
+        '/mafia/role': (_) => ReporterBroadcastListener(child: const RoleScreen()),
+        '/mafia/reveal': (_) => ReporterBroadcastListener(child: const RevealScreen()),
         '/mafia/game-over': (_) => const GameOverScreen(),
-<<<<<<< Updated upstream
-        '/mafia/night': (_) => const NightScreen(),
-        '/mafia/discussion': (_) => const DiscussionScreen(),
-        '/mafia/voting': (_) => const VotingScreen(),
-        '/mafia/lobby': (_) => const LobbyScreen(),
-=======
-        // Placeholder routes for screens built by other devs
-        '/mafia/night': (_) => const NightScreen(),
-        '/mafia/discussion': (_) => const _MafiaPlaceholder(label: 'Discussion — Dev 3'),
-        '/mafia/voting': (_) => const VotingScreen(),
+        // Real game screens wrapped with ReporterBroadcastListener
+        '/mafia/night': (_) => ReporterBroadcastListener(child: const NightScreen()),
+        '/mafia/discussion': (_) => ReporterBroadcastListener(child: const DiscussionScreen()),
+        '/mafia/voting': (_) => ReporterBroadcastListener(child: const VotingScreen()),
         '/mafia/lobby': (_) => const LobbyScreen(),      // Dev 2 ✅
 >>>>>>> Stashed changes
       },
@@ -78,10 +71,24 @@ class _AppBootstrapScreenState extends State<AppBootstrapScreen> {
   @override
   void initState() { super.initState(); _startBootstrap(); }
   Future<void> _startBootstrap() async {
-    final auth = context.read<AuthProvider>();
-    final game = context.read<GameController>();
+    // Splash delay so the logo has time to render
     await Future.delayed(const Duration(seconds: 1));
-    if (auth.isAuthenticated && auth.user != null) await game.tryReconnect(auth.user!.uid);
+
+    if (!mounted) return;
+
+    // ── Reconnect: check if there is an active game session ──────────────────
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.isAuthenticated) {
+      final gc = context.read<GameController>();
+      final userId = authProvider.user?.uid ?? '';
+      if (userId.isNotEmpty) {
+        final reconnected = await gc.tryReconnect(userId);
+        if (reconnected) {
+          return;
+        }
+      }
+    }
+
     if (!mounted) return;
     setState(() { _ready = true; });
   }
@@ -118,18 +125,8 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
-<<<<<<< Updated upstream
     final auth = context.watch<AuthProvider>();
     return auth.isAuthenticated ? const MainNavigationScreen() : const LoginScreen();
-=======
-    final authProvider = context.watch<AuthProvider>();
-
-    if (authProvider.isAuthenticated) {
-      return const MainNavigationScreen();
-    }
-    
-    return const LoginScreen();
->>>>>>> Stashed changes
   }
 }
 

@@ -1,4 +1,4 @@
-﻿name: nimbus_2k26_frontend
+name: nimbus_2k26_frontend
 description: "A new Flutter project."
 publish_to: 'none'
 
@@ -43,8 +43,7 @@ flutter:
     - assets/clubs/
     - assets/icons/location.svg
     - assets/images/
-    - assets/game/
-    - assets/fonts/
+    - assets/images/mafia/
 
   fonts:
     - family: Inter
