@@ -233,7 +233,7 @@ class AuthProvider extends ChangeNotifier {
       final firebaseIdToken = await firebaseUser.getIdToken(
         true,
       ); // forceRefresh=true
-      if (firebaseIdToken == null || firebaseIdToken.isEmpty) {
+      if (firebaseIdToken.isEmpty) {
         throw Exception('Failed to generate Firebase ID token.');
       }
       // Sanity check: a Firebase JWT always starts with "eyJ"
