@@ -377,20 +377,30 @@ class GameController extends ChangeNotifier {
   // ─ Hitman Strike ───────────────────────────────────────────────────────────────────
 
   void _handleHitmanStrike(Map<String, dynamic> data) {
-    // hitman-strike fires at T-5s; earlyDeaths are added to morningDeaths
-    // when phase-resolved fires at T-0. Here we just update player statuses.
-    final rawKilled = data['killed'] as List<dynamic>? ?? [];
-    for (final entry in rawKilled) {
-      final id = entry is Map ? entry['playerId'] as String? : entry as String?;
-      if (id != null) {
-        players = players.map((p) {
-          if (p.userId == id) {
-            return p.copyWith(status: PlayerStatus.ELIMINATED);
-          }
-          return p;
-        }).toList();
-      }
+    // hitman-strike fires at T-5s. Backend sends { deaths: [{playerId, userId, killedBy}], hitmanMetMafia: bool }
+    // Update player statuses immediately so the grid reflects kills before phase-resolved fires.
+    final rawDeaths = data['deaths'] as List<dynamic>? ?? [];
+    for (final entry in rawDeaths) {
+      if (entry is! Map) continue;
+      // Backend sends both playerId (internal DB id) and userId (user-facing id)
+      final userId = entry['userId'] as String?;
+      final playerId = entry['playerId'] as String?;
+      players = players.map((p) {
+        if ((userId != null && p.userId == userId) ||
+            (playerId != null && p.userId == playerId)) {
+          return p.copyWith(status: PlayerStatus.ELIMINATED);
+        }
+        return p;
+      }).toList();
     }
+
+    // Set the event so the _HitmanStrikeOverlay in night_screen.dart renders
+    hitmanStrikeEvent = data;
+
+    // Update hitmanMetMafia flag if relevant
+    final metMafia = data['hitmanMetMafia'] as bool? ?? false;
+    if (metMafia) hitmanMetMafia = true;
+
     notifyListeners();
   }
 
@@ -458,7 +468,7 @@ class GameController extends ChangeNotifier {
     final nav = mafiaNavKey.currentState;
     if (nav == null) return;
     // Push only if not already on that route
-    nav.pushNamedAndRemoveUntil(route, (r) => false);
+    nav.pushNamedAndRemoveUntil(route, (r) => r.isFirst);
   }
 
   // ─── COUNTDOWN TIMER ────────────────────────────────────────────────────────

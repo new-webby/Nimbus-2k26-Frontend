@@ -79,25 +79,17 @@ class VotingScreen extends StatelessWidget {
                       myUserId: controller.myUserId,
                       selectedUserId: controller.myVoteTarget,
                       onTap: controller.setVoteTarget,
-                      showRoles: false, // Don't show roles during voting
+                      showRoles: controller.devMode,
                       voteCounts: controller.voteTally,
                     ),
                   ),
                 ),
 
-                // Error Message if any
+                // Info/Error Message
                 if (controller.error != null)
                   Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      controller.error!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        color: Colors.redAccent,
-                      ),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: _buildErrorBanner(controller.error!),
                   ),
 
                 // Controls
@@ -145,6 +137,55 @@ class VotingScreen extends StatelessWidget {
                 child: CircularProgressIndicator(),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorBanner(String message) {
+    final isBountyInfo = message.contains('Bounty Hunter kill is not yet unlocked');
+    final isEliminatedInfo = isBountyInfo || message.toLowerCase().contains('eliminated') ||
+        message.toLowerCase().contains('cannot target');
+
+    String displayMessage = message;
+    if (isBountyInfo && displayMessage.startsWith('GameApiException(409):')) {
+      displayMessage = displayMessage.replaceFirst('GameApiException(409):', '').trim();
+    }
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 100),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isEliminatedInfo
+            ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
+            : Colors.redAccent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isEliminatedInfo
+              ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
+              : Colors.redAccent.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isEliminatedInfo ? Icons.info_outline : Icons.error_outline,
+            size: 18,
+            color: isEliminatedInfo ? const Color(0xFFFCD34D) : Colors.redAccent,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Text(
+                displayMessage,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: isEliminatedInfo ? const Color(0xFFFCD34D) : Colors.redAccent,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

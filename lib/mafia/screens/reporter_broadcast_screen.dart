@@ -105,7 +105,7 @@ class _ReporterBroadcastListenerState extends State<ReporterBroadcastListener> {
         );
         if (confirm == true) {
           await gc.leaveGame();
-          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+          Navigator.popUntil(context, (route) => route.isFirst);
         }
       },
       child: widget.child,

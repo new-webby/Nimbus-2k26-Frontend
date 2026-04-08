@@ -4,6 +4,14 @@ import '../controller/game_controller.dart';
 import '../models/player_model.dart';
 import '../services/game_api.dart';
 
+// ─── HITMAN NIGHT ACTION SCREEN ───────────────────────────────────────────────
+//
+// The hitman selects exactly 2 targets and guesses each one's role.
+// If BOTH guesses are correct, both targets are eliminated at T-5s.
+// Uses vote_type = HITMAN_TARGET with target_meta = { targets, roles }.
+//
+// This screen is pushed from night_screen.dart for HITMAN role players.
+
 class HitmanScreen extends StatefulWidget {
   const HitmanScreen({super.key});
 
@@ -12,605 +20,743 @@ class HitmanScreen extends StatefulWidget {
 }
 
 class _HitmanScreenState extends State<HitmanScreen> {
-  PlayerModel? _selectedPlayer;
-  String? _selectedRole;
+  // Two-slot selection: index 0 = first pick, index 1 = second pick
+  final List<PlayerModel?> _targets = [null, null];
+  final List<String?> _roles = [null, null];
+
+  int _activeSlot = 0; // which slot we're filling right now (0 or 1)
   bool _isSubmitting = false;
+  String? _errorMsg;
 
-  final Color _bgDark = const Color(0xFF0F0F0F);
-  final Color _bgCard = const Color(0xFF1A1C1E);
-  final Color _accentOrange = const Color(0xFFFF8566);
-  final Color _textMuted = const Color(0xFF888888);
+  // -- Colours (dark red / hitman theme) ----------------------------------------
+  static const _bg = Color(0xFF0A0A0F);
+  static const _surface = Color(0xFF14141A);
+  static const _card = Color(0xFF1C1C26);
+  static const _red = Color(0xFFCF2020);
+  static const _redGlow = Color(0xFFEF4444);
+  static const _amber = Color(0xFFF59E0B);
+  static const _textMuted = Color(0xFF6B7280);
+  static const _textPrimary = Color(0xFFEEF2FF);
 
-  final List<Map<String, dynamic>> _allRoles = [
-    {'name': 'MAFIA', 'icon': Icons.dangerous},
-    {'name': 'COP', 'icon': Icons.local_police},
-    {'name': 'VIGILANTE', 'icon': Icons.remove_red_eye},
-    {'name': 'AGENT', 'icon': Icons.real_estate_agent},
-    {'name': 'DOCTOR', 'icon': Icons.medical_services},
-    {'name': 'CITIZEN', 'icon': Icons.person},
-    {'name': 'SOLDIER', 'icon': Icons.security},
-    {'name': 'POLITICIAN', 'icon': Icons.account_balance},
-    {'name': 'PSYCHIC', 'icon': Icons.psychology},
-    {'name': 'LOVER', 'icon': Icons.favorite},
-    {'name': 'REPORTER', 'icon': Icons.feed},
-    {'name': 'GANGSTER', 'icon': Icons.groups},
-    {'name': 'DETECTIVE', 'icon': Icons.troubleshoot},
-    {'name': 'GHOUL', 'icon': Icons.filter_vintage},
-    {'name': 'MARTYR', 'icon': Icons.ac_unit},
-    {'name': 'PRIEST', 'icon': Icons.church},
-    {'name': 'PROPHET', 'icon': Icons.auto_awesome},
-    {'name': 'JUDGE', 'icon': Icons.gavel},
-    {'name': 'HACKER', 'icon': Icons.terminal},
-    {'name': 'MAGICIAN', 'icon': Icons.star_border},
+  // Valid role guesses the hitman can pick from (excluding COP — cannot target COP)
+  static const _guessableRoles = [
+    'MAFIA',
+    'MAFIA_HELPER',
+    'DOCTOR',
+    'NURSE',
+    'BOUNTY_HUNTER',
+    'REPORTER',
+    'PROPHET',
+    'CITIZEN',
+    'HITMAN',
   ];
 
-  Future<void> _executePrediction(GameController controller) async {
-    if (_selectedPlayer == null || _selectedRole == null || _isSubmitting) return;
+  // ── Submit ──────────────────────────────────────────────────────────────────
 
-    setState(() => _isSubmitting = true);
+  bool get _canSubmit =>
+      _targets[0] != null &&
+      _targets[1] != null &&
+      _roles[0] != null &&
+      _roles[1] != null &&
+      !_isSubmitting;
+
+  Future<void> _submit(GameController gc) async {
+    if (!_canSubmit) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMsg = null;
+    });
 
     try {
-      final res = await GameApi.instance.submitVote(
-        controller.roomCode!,
-        'HITMAN_STRIKE',
-        targets: [_selectedPlayer!.userId],
-        roles: [_selectedRole!],
+      await GameApi.instance.submitVote(
+        gc.roomCode!,
+        'HITMAN_TARGET',
+        targetMeta: {
+          'targets': [_targets[0]!.userId, _targets[1]!.userId],
+          'roles': [_roles[0]!, _roles[1]!],
+        },
       );
 
       if (!mounted) return;
-      if (res != null) {
-        // success message from backend
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(res, style: const TextStyle(color: Colors.white, fontFamily: 'Inter')),
-          backgroundColor: _accentOrange,
-        ));
-      }
-      // Return back after striking
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '🎯 Contract locked. Executing at T-5s.',
+            style: TextStyle(fontFamily: 'Inter', color: Colors.white),
+          ),
+          backgroundColor: Color(0xFF991B1B),
+        ),
+      );
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e.toString(), style: const TextStyle(color: Colors.white, fontFamily: 'Inter')),
-        backgroundColor: Colors.redAccent,
-      ));
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
+      setState(() {
+        _isSubmitting = false;
+        _errorMsg = e
+            .toString()
+            .replaceFirst('GameApiException', '')
+            .replaceAll(RegExp(r'^\(\d+\):\s*'), '');
+      });
     }
   }
 
+  // ── Build ────────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<GameController>();
+    final gc = context.watch<GameController>();
+    final candidates = gc.players
+        .where((p) => p.isAlive && p.userId != gc.myUserId)
+        .toList();
 
     return Scaffold(
-      backgroundColor: _bgDark,
+      backgroundColor: _bg,
       body: SafeArea(
         child: Column(
           children: [
-            // Top Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.shield, color: _accentOrange, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'NIMBUS MAFIA: ROLE\nANALYSIS',
-                        style: TextStyle(
-                          color: _accentOrange,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Text(
-                    'NIMBUS\nMAFIA',
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      fontStyle: FontStyle.italic,
+            _buildHeader(gc),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    // ── Contract slots ──────────────────────────────────────
+                    _buildSectionLabel('CONTRACT TARGETS', 'Select 2 players'),
+                    const SizedBox(height: 12),
+                    _buildContractSlots(),
+                    const SizedBox(height: 28),
+
+                    // ── Player grid ─────────────────────────────────────────
+                    _buildSectionLabel(
+                      'SELECT TARGET ${_activeSlot + 1}',
+                      _targets[_activeSlot] != null
+                          ? 'Tap again to change'
+                          : 'Tap a player below',
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    _buildPlayerGrid(candidates, gc.myUserId),
+                    const SizedBox(height: 28),
+
+                    // ── Role guess dropdowns ─────────────────────────────────
+                    if (_targets[0] != null || _targets[1] != null) ...[
+                      _buildSectionLabel(
+                          'ROLE PREDICTIONS', 'Guess each target\'s role'),
+                      const SizedBox(height: 12),
+                      if (_targets[0] != null)
+                        _buildRoleSlot(0, gc),
+                      if (_targets[1] != null) ...[
+                        const SizedBox(height: 12),
+                        _buildRoleSlot(1, gc),
+                      ],
+                      const SizedBox(height: 8),
+                    ],
+
+                    // ── Error banner ─────────────────────────────────────────
+                    if (_errorMsg != null) ...[
+                      const SizedBox(height: 8),
+                      _buildErrorBanner(_errorMsg!),
+                    ],
+                    const SizedBox(height: 100), // bottom padding for button
+                  ],
+                ),
               ),
             ),
-            const Divider(color: Color(0xFF222222), thickness: 1, height: 1),
 
-            Expanded(
-              child: _selectedPlayer == null
-                  ? _buildDiscussionTerminal(controller)
-                  : _buildRolePredictionTerminal(controller),
-            ),
-
-            // Mock Bottom Nav Bar (Matches App Aesthetic)
-            _buildBottomNav(),
+            // ── Bottom action bar ─────────────────────────────────────────────
+            _buildActionBar(gc),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDiscussionTerminal(GameController controller) {
-    final validPlayers = controller.players.where((p) => p.isAlive && p.userId != controller.myUserId).toList();
+  // ── Header ───────────────────────────────────────────────────────────────────
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Left Vertical Orange Line
-        Container(
-          width: 3,
-          margin: const EdgeInsets.only(left: 20, top: 20, bottom: 40),
-          decoration: BoxDecoration(
-            color: _accentOrange,
-            borderRadius: BorderRadius.circular(2),
+  Widget _buildHeader(GameController gc) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: const BoxDecoration(
+        color: _surface,
+        border: Border(bottom: BorderSide(color: Color(0xFF2A0A0A), width: 1)),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _card,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF2C2C3C)),
+              ),
+              child: const Icon(Icons.arrow_back_ios_new_rounded,
+                  color: _textMuted, size: 14),
+            ),
           ),
-        ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 20, 20),
+          const SizedBox(width: 14),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header section
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Column(
-                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'PLAYERS IN ROOM',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'STATUS: ACTIVE DISCUSSION',
-                          style: TextStyle(
-                            color: _textMuted,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: _textMuted, width: 1),
-                          ),
-                          child: Icon(Icons.add, color: _textMuted, size: 16),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${validPlayers.length}/${controller.players.length}',
-                          style: TextStyle(
-                            color: _accentOrange,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 30),
-
-                // Player List
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: validPlayers.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final p = validPlayers[index];
-                      // Assign mock statuses to make UI feel dynamic
-                      final statusMock = ['CURRENT FOCUS', 'SUSPECT', 'ANALYZING PATTERN...'][index % 3];
-                      final iconMock = [Icons.my_location, Icons.radio_button_unchecked, Icons.sync][index % 3];
-                      
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedPlayer = p;
-                            _selectedRole = null;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: _bgCard,
-                            border: Border.all(
-                              color: const Color(0xFF2C2C2C),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              // Avatar
-                              CircleAvatar(
-                                radius: 22,
-                                backgroundColor: const Color(0xFF3B5BDB),
-                                child: Text(
-                                  p.name.isNotEmpty ? p.name[0].toUpperCase() : '?',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      p.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      statusMock,
-                                      style: TextStyle(
-                                        color: index == 0 ? _accentOrange : _textMuted,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Icon(
-                                iconMock,
-                                color: index == 0 ? _accentOrange : _textMuted,
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                const Text(
+                  'HITMAN CONTRACT',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: _redGlow,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
                   ),
                 ),
-
-                // Footer lines
-                const Divider(color: Color(0xFF2C2C2C), thickness: 1),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(width: 3, height: 12, color: _accentOrange),
-                        const SizedBox(width: 4),
-                        Container(width: 2, height: 12, color: _accentOrange.withAlpha(150)),
-                        const SizedBox(width: 4),
-                        Container(width: 2, height: 12, color: _accentOrange.withAlpha(50)),
-                      ],
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'GAME ID: ${controller.roomCode ?? 'THETA-9'}',
-                          style: TextStyle(color: _textMuted, fontSize: 9, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          'ROUND: ${controller.round}',
-                          style: TextStyle(color: _textMuted, fontSize: 9, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRolePredictionTerminal(GameController controller) {
-    return Column(
-      children: [
-        // Left Vertical blue-ish line container
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 2,
-                margin: const EdgeInsets.only(left: 10, top: 20, bottom: 20),
-                color: const Color(0xFF4C4CFF),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () {
-                              setState(() {
-                                _selectedPlayer = null;
-                                _selectedRole = null;
-                              });
-                            },
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'ROLE PREDICTION TERMINAL',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              fontStyle: FontStyle.italic,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 32),
-                        child: RichText(
-                          text: TextSpan(
-                            style: TextStyle(color: _textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
-                            children: [
-                              const TextSpan(text: 'ASSIGN IDENTITY TO '),
-                              TextSpan(
-                                text: _selectedPlayer?.name ?? '',
-                                style: TextStyle(color: _accentOrange),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Search bar
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF141414),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.search, color: _accentOrange, size: 16),
-                            const SizedBox(width: 12),
-                            Text(
-                              'FILTER ROLES...',
-                              style: TextStyle(color: _textMuted, fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Roles Grid
-                      Expanded(
-                        child: GridView.builder(
-                          itemCount: _allRoles.length,
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                            childAspectRatio: 1.1,
-                          ),
-                          itemBuilder: (context, index) {
-                            final role = _allRoles[index];
-                            final isSelected = _selectedRole == role['name'];
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _selectedRole = role['name'];
-                                });
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: _bgCard,
-                                  border: Border.all(
-                                    color: isSelected ? _accentOrange : const Color(0xFF2C2C2C),
-                                    width: isSelected ? 1.5 : 1,
-                                  ),
-                                ),
-                                child: Stack(
-                                  children: [
-                                    if (isSelected)
-                                      Positioned(
-                                        top: 0,
-                                        right: 0,
-                                        child: Container(
-                                          width: 24,
-                                          height: 24,
-                                          color: _accentOrange,
-                                          child: const Icon(Icons.check, color: Colors.white, size: 14),
-                                        ),
-                                      ),
-                                    Center(
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(role['icon'], color: _accentOrange, size: 28),
-                                          const SizedBox(height: 12),
-                                          Text(
-                                            role['name'],
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w800,
-                                              letterSpacing: 1,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Bottom Footer (Exec)
-        if (_selectedRole != null)
-          Container(
-            padding: const EdgeInsets.all(20),
-            color: _bgDark,
-            child: Row(
-               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                 Container(
-                  width: 3,
-                  height: 100, // Approximate height to match image
-                  color: const Color(0xFFF7DE88),
-                  margin: const EdgeInsets.only(right: 16),
-                ),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    color: const Color(0xFF222222),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              color: Colors.black,
-                              child: Icon(
-                                _allRoles.firstWhere((r) => r['name'] == _selectedRole)['icon'],
-                                color: _accentOrange,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'ROLE PREDICTED',
-                                  style: TextStyle(color: _textMuted, fontSize: 10, fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 2),
-                                RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
-                                    children: [
-                                      TextSpan(text: '${_selectedPlayer?.name} IS '),
-                                      TextSpan(text: _selectedRole, style: TextStyle(color: _accentOrange)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _accentOrange,
-                              foregroundColor: Colors.black,
-                              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                            onPressed: _isSubmitting ? null : () => _executePrediction(controller),
-                            child: _isSubmitting 
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                              : const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text('EXECUTE PREDICTION', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
-                                    SizedBox(width: 12),
-                                    Icon(Icons.send, size: 16),
-                                  ],
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
+                Text(
+                  'Night ${gc.round} · Select 2 targets + guess their roles',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    color: _textMuted,
+                    fontSize: 11,
                   ),
                 ),
               ],
             ),
-          )
-      ],
-    );
-  }
-
-  Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _bgDark,
-        border: const Border(top: BorderSide(color: Color(0xFF2C2C2C))),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(Icons.assignment, 'GAMES', false),
-          _navItem(Icons.remove_red_eye, 'ROLES', false),
-          _navItem(Icons.people, 'ROOMS', false),
-          _navItem(Icons.monetization_on, 'RANK', false),
-          _navItem(Icons.account_circle, 'PROFILE', true),
+          ),
+          // Slot indicator
+          _buildSlotDots(),
         ],
       ),
     );
   }
 
-  Widget _navItem(IconData icon, String label, bool isSelected) {
+  Widget _buildSlotDots() {
+    return Row(
+      children: List.generate(2, (i) {
+        final filled = _targets[i] != null;
+        final active = _activeSlot == i && !filled;
+        return Container(
+          margin: const EdgeInsets.only(left: 6),
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: filled
+                ? _redGlow
+                : active
+                    ? _redGlow.withValues(alpha: 0.3)
+                    : _card,
+            border: Border.all(
+              color: filled || active ? _redGlow : _textMuted.withValues(alpha: 0.3),
+              width: 1.5,
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  // ── Contract Slots ───────────────────────────────────────────────────────────
+
+  Widget _buildContractSlots() {
+    return Row(
+      children: [
+        Expanded(child: _buildSlot(0)),
+        const SizedBox(width: 12),
+        Expanded(child: _buildSlot(1)),
+      ],
+    );
+  }
+
+  Widget _buildSlot(int idx) {
+    final player = _targets[idx];
+    final role = _roles[idx];
+    final isActive = _activeSlot == idx;
+
+    return GestureDetector(
+      onTap: () => setState(() => _activeSlot = idx),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: player != null
+              ? _red.withValues(alpha: 0.08)
+              : isActive
+                  ? _redGlow.withValues(alpha: 0.05)
+                  : _card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: player != null
+                ? _red.withValues(alpha: 0.6)
+                : isActive
+                    ? _redGlow.withValues(alpha: 0.3)
+                    : const Color(0xFF2C2C3C),
+            width: isActive ? 1.5 : 1,
+          ),
+        ),
+        child: player == null
+            ? Column(
+                children: [
+                  const Icon(Icons.add_rounded, color: _textMuted, size: 22),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Target ${idx + 1}',
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      color: _textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: _red.withValues(alpha: 0.3),
+                        child: Text(
+                          player.name.isNotEmpty
+                              ? player.name[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          player.name,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            color: _textPrimary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => setState(() {
+                          _targets[idx] = null;
+                          _roles[idx] = null;
+                          _activeSlot = idx;
+                        }),
+                        child: const Icon(Icons.close_rounded,
+                            color: _textMuted, size: 14),
+                      ),
+                    ],
+                  ),
+                  if (role != null) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _amber.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: _amber.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        role,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          color: _amber,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ] else
+                    const SizedBox(height: 4),
+                  Text(
+                    role == null ? '— pick a role below —' : '',
+                    style: const TextStyle(
+                        fontFamily: 'Inter',
+                        color: _textMuted,
+                        fontSize: 9),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  // ── Player Grid ──────────────────────────────────────────────────────────────
+
+  Widget _buildPlayerGrid(List<PlayerModel> candidates, String? myUserId) {
+    final selectedIds =
+        _targets.where((t) => t != null).map((t) => t!.userId).toSet();
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.82,
+      ),
+      itemCount: candidates.length,
+      itemBuilder: (context, i) {
+        final p = candidates[i];
+        final isSelected = selectedIds.contains(p.userId);
+        final isSlot0 = _targets[0]?.userId == p.userId;
+        final isSlot1 = _targets[1]?.userId == p.userId;
+        final isEliminated = !p.isAlive;
+
+        return GestureDetector(
+          onTap: isEliminated
+              ? null
+              : () {
+                  setState(() {
+                    if (isSelected) {
+                      // Deselect
+                      if (isSlot0) {
+                        _targets[0] = null;
+                        _roles[0] = null;
+                        _activeSlot = 0;
+                      } else if (isSlot1) {
+                        _targets[1] = null;
+                        _roles[1] = null;
+                        _activeSlot = 1;
+                      }
+                    } else {
+                      // Assign to active slot
+                      _targets[_activeSlot] = p;
+                      _roles[_activeSlot] = null;
+                      // Advance active slot if both aren't filled
+                      if (_activeSlot == 0 && _targets[1] == null) {
+                        _activeSlot = 1;
+                      } else if (_activeSlot == 1 && _targets[0] == null) {
+                        _activeSlot = 0;
+                      }
+                    }
+                  });
+                },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? _red.withValues(alpha: 0.15)
+                  : isEliminated
+                      ? _card.withValues(alpha: 0.5)
+                      : _card,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isSelected
+                    ? _redGlow
+                    : isEliminated
+                        ? const Color(0xFF2C2C3C).withValues(alpha: 0.5)
+                        : const Color(0xFF2C2C3C),
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: isEliminated
+                          ? const Color(0xFF374151)
+                          : isSelected
+                              ? _red.withValues(alpha: 0.5)
+                              : const Color(0xFF3B5BDB),
+                      child: Text(
+                        p.name.isNotEmpty ? p.name[0].toUpperCase() : '?',
+                        style: TextStyle(
+                          color: isEliminated
+                              ? const Color(0xFF6B7280)
+                              : Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    if (isEliminated)
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withValues(alpha: 0.5),
+                        ),
+                        child: const Icon(Icons.close_rounded,
+                            color: Color(0xFFEF4444), size: 20),
+                      ),
+                    // Slot badge
+                    if (isSlot0 || isSlot1)
+                      Positioned(
+                        top: -2,
+                        right: -2,
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          decoration: const BoxDecoration(
+                              color: _redGlow, shape: BoxShape.circle),
+                          child: Center(
+                            child: Text(
+                              isSlot0 ? '1' : '2',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  p.name,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: isEliminated
+                        ? const Color(0xFF6B7280)
+                        : _textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Role Slot Dropdown ───────────────────────────────────────────────────────
+
+  Widget _buildRoleSlot(int idx, GameController gc) {
+    final player = _targets[idx];
+    if (player == null) return const SizedBox.shrink();
+
     return Container(
-      decoration: isSelected
-          ? const BoxDecoration(
-              border: Border(top: BorderSide(color: Color(0xFFFF8566), width: 2)),
-              color: Color(0xFF1E130E),
-            )
-          : null,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _roles[idx] != null
+              ? _amber.withValues(alpha: 0.5)
+              : const Color(0xFF2C2C3C),
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _roles[idx],
+          hint: Text(
+            'Guess role for ${player.name}',
+            style: const TextStyle(
+                color: _textMuted, fontSize: 12, fontFamily: 'Inter'),
+          ),
+          isExpanded: true,
+          dropdownColor: const Color(0xFF1C1C26),
+          iconEnabledColor: _textMuted,
+          onChanged: (val) => setState(() => _roles[idx] = val),
+          items: _guessableRoles
+              .map((r) => DropdownMenuItem(
+                    value: r,
+                    child: Text(
+                      r,
+                      style: const TextStyle(
+                          color: _textPrimary,
+                          fontSize: 13,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ))
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  // ── Action Bar ───────────────────────────────────────────────────────────────
+
+  Widget _buildActionBar(GameController gc) {
+    final ready = _canSubmit;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      decoration: const BoxDecoration(
+        color: _surface,
+        border: Border(top: BorderSide(color: Color(0xFF2A0A0A))),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: isSelected ? _accentOrange : _textMuted, size: 20),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? _accentOrange : _textMuted,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+          // Progress bar showing how complete the contract is
+          _buildProgressBar(),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: ready
+                    ? const LinearGradient(
+                        colors: [Color(0xFF991B1B), Color(0xFFDC2626)],
+                      )
+                    : null,
+                color: ready ? null : const Color(0xFF2C2C3C),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: ready ? () => _submit(gc) : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: _isSubmitting
+                        ? const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2),
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.gavel_rounded,
+                                color: ready
+                                    ? Colors.white
+                                    : _textMuted,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                ready
+                                    ? 'EXECUTE CONTRACT'
+                                    : _statusText(),
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: ready ? Colors.white : _textMuted,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: const Text(
+              'Skip / Abstain',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: _textMuted,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _statusText() {
+    if (_targets[0] == null) return 'SELECT TARGET 1';
+    if (_targets[1] == null) return 'SELECT TARGET 2';
+    if (_roles[0] == null) return 'GUESS ROLE FOR TARGET 1';
+    if (_roles[1] == null) return 'GUESS ROLE FOR TARGET 2';
+    return 'EXECUTE CONTRACT';
+  }
+
+  Widget _buildProgressBar() {
+    final steps = [
+      _targets[0] != null,
+      _targets[1] != null,
+      _roles[0] != null,
+      _roles[1] != null,
+    ];
+    return Row(
+      children: List.generate(4, (i) {
+        return Expanded(
+          child: Container(
+            margin: EdgeInsets.only(right: i < 3 ? 6 : 0),
+            height: 3,
+            decoration: BoxDecoration(
+              color: steps[i]
+                  ? _redGlow
+                  : const Color(0xFF2C2C3C),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+
+  Widget _buildSectionLabel(String title, String sub) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            color: _textPrimary,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          sub,
+          style: const TextStyle(
+              fontFamily: 'Inter', color: _textMuted, fontSize: 11),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorBanner(String message) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: _redGlow.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _redGlow.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: _redGlow, size: 16),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                  fontFamily: 'Inter', fontSize: 12, color: _redGlow),
             ),
           ),
         ],

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -10,6 +11,7 @@ import '../widgets/phase_timer.dart';
 import '../widgets/dev_role_board.dart';
 import '../widgets/chat_widget.dart';
 import '../services/pusher_service.dart';
+import 'hitman_screen.dart';
 
 class NightScreen extends StatefulWidget {
   const NightScreen({super.key});
@@ -19,11 +21,6 @@ class NightScreen extends StatefulWidget {
 }
 
 class _NightScreenState extends State<NightScreen> {
-  // Hitman multi-select tracking
-  final List<String> _hitmanTargets = [];
-  String? _hitmanRoleGuess1;
-  String? _hitmanRoleGuess2;
-
   // Single use lock tracking for COP and REPORTER
   bool _hasLockedAction = false;
 
@@ -232,9 +229,8 @@ class _NightScreenState extends State<NightScreen> {
               'Select exactly two targets and guess their roles. Locks at T-5s.';
           themeColor = const Color(0xFF991B1B);
           hasAction = true;
-          actionLabel = 'Execute Contract';
+          actionLabel = 'Set Up Contract';
           voteType = 'HITMAN_TARGET';
-          customWidget = _buildHitmanUI(controller, canVote);
           break;
         case GameRole.CITIZEN:
           title = 'Citizens Sleep';
@@ -323,7 +319,7 @@ class _NightScreenState extends State<NightScreen> {
                         allowSelfSelect: myRole == GameRole.DOCTOR,
                         selectedUserId: myVoteTarget,
                         onTap: controller.setVoteTarget,
-                        showRoles: false,
+                        showRoles: controller.devMode,
                         vipUserId: controller.bountyVipUserId,
                       ),
                     ),
@@ -353,23 +349,15 @@ class _NightScreenState extends State<NightScreen> {
                     ),
                   ),
 
-                // Error Message if any
+                // Info/Error Message
                 if (controller.error != null)
                   Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      controller.error!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        color: Colors.redAccent,
-                      ),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: _buildErrorBanner(controller.error!),
                   ),
 
                 // Controls (Standard)
-                if (hasAction && customWidget == null)
+                if (hasAction && customWidget == null && myRole != GameRole.HITMAN)
                   Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Column(
@@ -419,48 +407,23 @@ class _NightScreenState extends State<NightScreen> {
                     ),
                   )
                 // Controls (Hitman)
-                else if (hasAction && customWidget != null)
+                else if (hasAction && myRole == GameRole.HITMAN)
                   Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: SizedBox(
                       width: double.infinity,
                       child: VoteButton(
-                        label:
-                            _hitmanTargets.length == 2 &&
-                                _hitmanRoleGuess1 != null &&
-                                _hitmanRoleGuess2 != null
-                            ? actionLabel
-                            : 'Select 2 Targets and Roles',
-                        isSelected:
-                            _hitmanTargets.length == 2 &&
-                            _hitmanRoleGuess1 != null &&
-                            _hitmanRoleGuess2 != null,
-                        isDisabled:
-                            !canVote ||
-                            _hitmanTargets.length != 2 ||
-                            _hitmanRoleGuess1 == null ||
-                            _hitmanRoleGuess2 == null,
+                        label: actionLabel,
+                        isSelected: false,
+                        isDisabled: !canVote,
                         accentColor: themeColor,
-                        onPressed: () async {
-                          if (canVote &&
-                              _hitmanTargets.length == 2 &&
-                              _hitmanRoleGuess1 != null &&
-                              _hitmanRoleGuess2 != null) {
-                            final result = await controller.submitVote(
-                              voteType,
-                              overrideTargets: _hitmanTargets,
-                              overrideRoles: [
-                                _hitmanRoleGuess1!,
-                                _hitmanRoleGuess2!,
-                              ],
+                        onPressed: () {
+                          if (canVote) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const HitmanScreen(),
+                              ),
                             );
-                            if (!context.mounted) return;
-                            if (result != null) {
-                              _showResultDialog(context, result);
-                            }
-                            if (controller.error == null) {
-                              setState(() => _hasLockedAction = true);
-                            }
                           }
                         },
                       ),
@@ -517,201 +480,51 @@ class _NightScreenState extends State<NightScreen> {
       ),
     );
   }
+  Widget _buildErrorBanner(String message) {
+    final isBountyInfo = message.contains('Bounty Hunter kill is not yet unlocked');
+    final isEliminatedInfo = isBountyInfo || message.toLowerCase().contains('eliminated') ||
+        message.toLowerCase().contains('cannot target');
 
-  // HITMAN COMPLEX UI BUILDER
-  Widget _buildHitmanUI(GameController controller, bool canVote) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Select Targets
-          Text(
-            'Select exactly 2 Targets:',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.8,
-            ),
-            itemCount: controller.players.length,
-            itemBuilder: (context, index) {
-              final player = controller.players[index];
-              final isMe = player.userId == controller.myUserId;
-              final isEliminated = player.isEliminated;
-              final isSelected = _hitmanTargets.contains(player.userId);
-
-              return GestureDetector(
-                onTap: (!canVote || isEliminated || isMe)
-                    ? null
-                    : () {
-                        setState(() {
-                          if (isSelected) {
-                            _hitmanTargets.remove(player.userId);
-                          } else if (_hitmanTargets.length < 2) {
-                            _hitmanTargets.add(player.userId);
-                          }
-                        });
-                      },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFF991B1B).withValues(alpha: 0.2)
-                        : const Color(0xFF1C2333),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF991B1B)
-                          : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: isEliminated
-                              ? const Color(0xFF374151)
-                              : const Color(0xFF3B5BDB),
-                          child: Text(
-                            player.name.isNotEmpty
-                                ? player.name[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          player.name,
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 11,
-                            color: isEliminated
-                                ? const Color(0xFF6B7280)
-                                : Colors.white,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-
-          const SizedBox(height: 32),
-
-          // Role Guesses
-          if (_hitmanTargets.isNotEmpty) ...[
-            Text(
-              'Select Roles for your targets:',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildRoleDropdown(
-              label: 'Target 1 (${_getName(controller, _hitmanTargets[0])})',
-              value: _hitmanRoleGuess1,
-              onChanged: canVote
-                  ? (val) => setState(() => _hitmanRoleGuess1 = val)
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            if (_hitmanTargets.length > 1)
-              _buildRoleDropdown(
-                label: 'Target 2 (${_getName(controller, _hitmanTargets[1])})',
-                value: _hitmanRoleGuess2,
-                onChanged: canVote
-                    ? (val) => setState(() => _hitmanRoleGuess2 = val)
-                    : null,
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  String _getName(GameController controller, String uid) {
-    try {
-      return controller.players.firstWhere((p) => p.userId == uid).name;
-    } catch (_) {
-      return 'Unknown';
+    String displayMessage = message;
+    if (isBountyInfo && displayMessage.startsWith('GameApiException(409):')) {
+      displayMessage = displayMessage.replaceFirst('GameApiException(409):', '').trim();
     }
-  }
-
-  Widget _buildRoleDropdown({
-    required String label,
-    required String? value,
-    required ValueChanged<String?>? onChanged,
-  }) {
-    // Exclude COP from valid hitman targets based on design spec!
-    final roles = [
-      'DOCTOR',
-      'NURSE',
-      'REPORTER',
-      'BOUNTY_HUNTER',
-      'PROPHET',
-      'CITIZEN',
-    ];
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      constraints: const BoxConstraints(maxHeight: 100),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C2333),
-        borderRadius: BorderRadius.circular(12),
+        color: isEliminatedInfo
+            ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
+            : Colors.redAccent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isEliminatedInfo
+              ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
+              : Colors.redAccent.withValues(alpha: 0.4),
+        ),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          hint: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 13,
-              fontFamily: 'Inter',
-            ),
+      child: Row(
+        children: [
+          Icon(
+            isEliminatedInfo ? Icons.info_outline : Icons.error_outline,
+            size: 18,
+            color: isEliminatedInfo ? const Color(0xFFFCD34D) : Colors.redAccent,
           ),
-          isExpanded: true,
-          dropdownColor: const Color(0xFF1C2333),
-          icon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
-          onChanged: onChanged,
-          items: roles.map((r) {
-            return DropdownMenuItem<String>(
-              value: r,
+          const SizedBox(width: 8),
+          Expanded(
+            child: SingleChildScrollView(
               child: Text(
-                r,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
+                displayMessage,
+                style: TextStyle(
                   fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: isEliminatedInfo ? const Color(0xFFFCD34D) : Colors.redAccent,
                 ),
               ),
-            );
-          }).toList(),
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
