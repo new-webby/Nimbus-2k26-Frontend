@@ -56,6 +56,8 @@ class PusherService extends ChangeNotifier {
       StreamController<Map<String, dynamic>>.broadcast();
   final _nurseCheckController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final _actionReportController = 
+      StreamController<Map<String, dynamic>>.broadcast();
   // Global room list events (for the browse rooms screen)
   final _roomOpenedController =
       StreamController<Map<String, dynamic>>.broadcast();
@@ -92,6 +94,10 @@ class PusherService extends ChangeNotifier {
   /// Nurse check result — whether target is doctor
   Stream<Map<String, dynamic>> get onNurseCheckResult =>
       _nurseCheckController.stream;
+
+  /// Public action report (mafia kill, bounty hunter kill, doctor save, etc)
+  Stream<Map<String, dynamic>> get onActionReport =>
+      _actionReportController.stream;
 
   Stream<Map<String, dynamic>> get onRoomOpened => _roomOpenedController.stream;
   Stream<Map<String, dynamic>> get onRoomClosed => _roomClosedController.stream;
@@ -263,6 +269,9 @@ class PusherService extends ChangeNotifier {
       case 'hitman-strike':
         _hitmanStrikeController.add(data);
         break;
+      case 'action-report':
+        _actionReportController.add(data);
+        break;
       case 'game-started':
         _gameStartedController.add(data);
         break;
@@ -359,6 +368,7 @@ class PusherService extends ChangeNotifier {
     _hitmanStrikeController.close();
     _reporterResultController.close();
     _nurseCheckController.close();
+    _actionReportController.close();
     _roomOpenedController.close();
     _roomClosedController.close();
     super.dispose();

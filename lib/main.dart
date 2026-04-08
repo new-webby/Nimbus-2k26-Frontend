@@ -22,6 +22,7 @@ import 'mafia/screens/discussion_screen.dart';
 import 'mafia/screens/night_screen.dart';
 import 'mafia/screens/voting_screen.dart';
 import 'mafia/screens/reporter_broadcast_screen.dart';
+import 'mafia/screens/action_report_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,13 +57,13 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const MainNavigationScreen(),
         '/login': (context) => const LoginScreen(),
         // ── Mafia game screens ───────────────────────────────────────────────
-        '/mafia/role': (_) => ReporterBroadcastListener(child: const RoleScreen()),
-        '/mafia/reveal': (_) => ReporterBroadcastListener(child: const RevealScreen()),
+        '/mafia/role': (_) => ActionReportListener(child: ReporterBroadcastListener(child: const RoleScreen())),
+        '/mafia/reveal': (_) => ActionReportListener(child: ReporterBroadcastListener(child: const RevealScreen())),
         '/mafia/game-over': (_) => const GameOverScreen(),
         // Real game screens wrapped with ReporterBroadcastListener
-        '/mafia/night': (_) => ReporterBroadcastListener(child: const NightScreen()),
-        '/mafia/discussion': (_) => ReporterBroadcastListener(child: const DiscussionScreen()),
-        '/mafia/voting': (_) => ReporterBroadcastListener(child: const VotingScreen()),
+        '/mafia/night': (_) => ActionReportListener(child: ReporterBroadcastListener(child: const NightScreen())),
+        '/mafia/discussion': (_) => ActionReportListener(child: ReporterBroadcastListener(child: const DiscussionScreen())),
+        '/mafia/voting': (_) => ActionReportListener(child: ReporterBroadcastListener(child: const VotingScreen())),
         '/mafia/lobby': (_) => const LobbyScreen(),      // Dev 2 ✅
       },
     );
