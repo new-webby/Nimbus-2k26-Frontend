@@ -75,7 +75,7 @@ class _GameOverScreenState extends State<GameOverScreen>
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
           gc.leaveGame();
-          Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
+          Navigator.popUntil(context, (route) => route.isFirst);
         }
       },
       child: Scaffold(
@@ -161,7 +161,7 @@ class _GameOverScreenState extends State<GameOverScreen>
                           // Dev 2's lobby screen handles play again
                           Navigator.of(context).pushNamedAndRemoveUntil(
                             '/mafia/lobby',
-                            (r) => false,
+                            (r) => r.isFirst,
                           );
                         },
                         isPrimary: true,
@@ -173,10 +173,7 @@ class _GameOverScreenState extends State<GameOverScreen>
                         icon: Icons.home_rounded,
                         onPressed: () {
                           gc.leaveGame();
-                          Navigator.of(context).pushNamedAndRemoveUntil(
-                            '/',
-                            (r) => false,
-                          );
+                          Navigator.popUntil(context, (route) => route.isFirst);
                         },
                         isPrimary: false,
                       ),

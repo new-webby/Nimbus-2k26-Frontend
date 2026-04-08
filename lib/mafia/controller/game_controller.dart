@@ -468,7 +468,7 @@ class GameController extends ChangeNotifier {
     final nav = mafiaNavKey.currentState;
     if (nav == null) return;
     // Push only if not already on that route
-    nav.pushNamedAndRemoveUntil(route, (r) => false);
+    nav.pushNamedAndRemoveUntil(route, (r) => r.isFirst);
   }
 
   // ─── COUNTDOWN TIMER ────────────────────────────────────────────────────────

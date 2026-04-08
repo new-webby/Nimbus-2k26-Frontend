@@ -456,11 +456,7 @@ class _ProfilePageState extends State<ProfilePage> {
               if (confirm != true || !context.mounted) return;
               await auth.logout();
               if (!context.mounted) return;
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/login',
-                (route) => false,
-              );
+              Navigator.popUntil(context, (route) => route.isFirst);
             },
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
@@ -507,11 +503,7 @@ class _ProfilePageState extends State<ProfilePage> {
               final deleted = await auth.deleteAccount();
               if (!context.mounted) return;
               if (deleted) {
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/login',
-                  (route) => false,
-                );
+                Navigator.popUntil(context, (route) => route.isFirst);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
