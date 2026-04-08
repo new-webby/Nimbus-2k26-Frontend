@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/room_model.dart';
 import '../models/player_model.dart';
 import '../models/death_event.dart';
+import '../models/action_report_model.dart';
 import '../services/game_api.dart';
 import '../services/pusher_service.dart';
 
@@ -46,6 +47,9 @@ class GameController extends ChangeNotifier {
   /// Set when a `reporter-broadcast` event fires. Cleared by the overlay
   /// after the player dismisses it.
   ReporterBroadcast? pendingBroadcast;
+
+  /// Set when an `action-report` event fires. Cleared by the overlay.
+  ActionReport? pendingActionReport;
 
   /// Timer countdown in seconds (mirrors backend phaseEndsAt).
   int timeRemaining = 0;
@@ -102,6 +106,7 @@ class GameController extends ChangeNotifier {
   StreamSubscription<Map<String, dynamic>>? _investigationSub;
   StreamSubscription<Map<String, dynamic>>? _reporterResultSub;
   StreamSubscription<Map<String, dynamic>>? _nurseCheckSub;
+  StreamSubscription<Map<String, dynamic>>? _actionReportSub;
 
   final GameApi _api = GameApi.instance;
   final PusherService _pusher = PusherService.instance;
@@ -209,6 +214,7 @@ class GameController extends ChangeNotifier {
     _investigationSub?.cancel();
     _reporterResultSub?.cancel();
     _nurseCheckSub?.cancel();
+    _actionReportSub?.cancel();
 
     _phaseSub = _pusher.onPhaseResolved.listen(_handlePhaseResolved);
     _roleSub = _pusher.onRoleAssigned.listen(_handleRoleAssigned);
@@ -223,6 +229,7 @@ class GameController extends ChangeNotifier {
         _pusher.onReporterResult.listen(_handleReporterResult);
     _nurseCheckSub =
         _pusher.onNurseCheckResult.listen(_handleNurseCheckResult);
+    _actionReportSub = _pusher.onActionReport.listen(_handleActionReport);
   }
 
   // ─── EVENT HANDLERS ─────────────────────────────────────────────────────────
@@ -346,6 +353,7 @@ class GameController extends ChangeNotifier {
 
     morningDeaths = [];
     pendingBroadcast = null;
+    pendingActionReport = null;
     _stopCountdown();
     notifyListeners();
 
@@ -371,6 +379,19 @@ class GameController extends ChangeNotifier {
   /// Call from the overlay widget once the broadcast has been shown.
   void dismissBroadcast() {
     pendingBroadcast = null;
+    notifyListeners();
+  }
+
+  // ─ Action Report ────────────────────────────────────────────────────────────
+
+  void _handleActionReport(Map<String, dynamic> data) {
+    pendingActionReport = ActionReport.fromJson(data);
+    notifyListeners();
+  }
+
+  /// Call from the overlay widget once the action report has been shown.
+  void dismissActionReport() {
+    pendingActionReport = null;
     notifyListeners();
   }
 
@@ -566,6 +587,7 @@ class GameController extends ChangeNotifier {
     _investigationSub?.cancel();
     _reporterResultSub?.cancel();
     _nurseCheckSub?.cancel();
+    _actionReportSub?.cancel();
     await _pusher.disconnect();
     await _api.clearActiveRoom();
     // Reset state
@@ -577,6 +599,7 @@ class GameController extends ChangeNotifier {
     roleCardSeen = false;
     morningDeaths = [];
     pendingBroadcast = null;
+    pendingActionReport = null;
     myVoteTarget = null;
     voteTally = {};
     nightDeaths = [];
@@ -603,6 +626,7 @@ class GameController extends ChangeNotifier {
     _investigationSub?.cancel();
     _reporterResultSub?.cancel();
     _nurseCheckSub?.cancel();
+    _actionReportSub?.cancel();
     super.dispose();
   }
 }
