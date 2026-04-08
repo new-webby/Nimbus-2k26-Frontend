@@ -1,8 +1,5 @@
 import 'dart:async';
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -375,12 +372,17 @@ class _NightScreenState extends State<NightScreen> {
                 // Info/Error Message
                 if (controller.error != null)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     child: _buildErrorBanner(controller.error!),
                   ),
 
                 // Controls (Standard)
-                if (hasAction && customWidget == null && myRole != GameRole.HITMAN)
+                if (hasAction &&
+                    customWidget == null &&
+                    myRole != GameRole.HITMAN)
                   Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Column(
@@ -450,29 +452,12 @@ class _NightScreenState extends State<NightScreen> {
                         isSelected: false,
                         isDisabled: !canVote,
                         accentColor: themeColor,
-<<<<<<< Updated upstream
                         onPressed: () {
                           if (canVote) {
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => const HitmanScreen(),
                               ),
-=======
-                        onPressed: () async {
-                          if (canVote &&
-                              _hitmanTargets.length == 2 &&
-                              _hitmanRoleGuess1 != null &&
-                              _hitmanRoleGuess2 != null) {
-                            final result = await controller.submitVote(
-                              voteType,
-                              overrideTargetMeta: {
-                                'targets': _hitmanTargets,
-                                'roles': [
-                                  _hitmanRoleGuess1!,
-                                  _hitmanRoleGuess2!,
-                                ],
-                              },
->>>>>>> Stashed changes
                             );
                           }
                         },
@@ -535,14 +520,21 @@ class _NightScreenState extends State<NightScreen> {
       ),
     );
   }
+
   Widget _buildErrorBanner(String message) {
-    final isBountyInfo = message.contains('Bounty Hunter kill is not yet unlocked');
-    final isEliminatedInfo = isBountyInfo || message.toLowerCase().contains('eliminated') ||
+    final isBountyInfo = message.contains(
+      'Bounty Hunter kill is not yet unlocked',
+    );
+    final isEliminatedInfo =
+        isBountyInfo ||
+        message.toLowerCase().contains('eliminated') ||
         message.toLowerCase().contains('cannot target');
 
     String displayMessage = message;
     if (isBountyInfo && displayMessage.startsWith('GameApiException(409):')) {
-      displayMessage = displayMessage.replaceFirst('GameApiException(409):', '').trim();
+      displayMessage = displayMessage
+          .replaceFirst('GameApiException(409):', '')
+          .trim();
     }
 
     return Container(
@@ -564,7 +556,9 @@ class _NightScreenState extends State<NightScreen> {
           Icon(
             isEliminatedInfo ? Icons.info_outline : Icons.error_outline,
             size: 18,
-            color: isEliminatedInfo ? const Color(0xFFFCD34D) : Colors.redAccent,
+            color: isEliminatedInfo
+                ? const Color(0xFFFCD34D)
+                : Colors.redAccent,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -574,7 +568,9 @@ class _NightScreenState extends State<NightScreen> {
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 12,
-                  color: isEliminatedInfo ? const Color(0xFFFCD34D) : Colors.redAccent,
+                  color: isEliminatedInfo
+                      ? const Color(0xFFFCD34D)
+                      : Colors.redAccent,
                 ),
               ),
             ),
