@@ -143,9 +143,17 @@ class VotingScreen extends StatelessWidget {
   }
 
   Widget _buildErrorBanner(String message) {
-    final isEliminatedInfo = message.toLowerCase().contains('eliminated') ||
+    final isBountyInfo = message.contains('Bounty Hunter kill is not yet unlocked');
+    final isEliminatedInfo = isBountyInfo || message.toLowerCase().contains('eliminated') ||
         message.toLowerCase().contains('cannot target');
+
+    String displayMessage = message;
+    if (isBountyInfo && displayMessage.startsWith('GameApiException(409):')) {
+      displayMessage = displayMessage.replaceFirst('GameApiException(409):', '').trim();
+    }
+
     return Container(
+      constraints: const BoxConstraints(maxHeight: 100),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: isEliminatedInfo
@@ -161,26 +169,20 @@ class VotingScreen extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            isEliminatedInfo
-                ? Icons.info_outline_rounded
-                : Icons.error_outline_rounded,
-            color: isEliminatedInfo
-                ? const Color(0xFFF59E0B)
-                : Colors.redAccent,
-            size: 16,
+            isEliminatedInfo ? Icons.info_outline : Icons.error_outline,
+            size: 18,
+            color: isEliminatedInfo ? const Color(0xFFFCD34D) : Colors.redAccent,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              isEliminatedInfo
-                  ? 'That player has already been eliminated.'
-                  : message,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                color: isEliminatedInfo
-                    ? const Color(0xFFF59E0B)
-                    : Colors.redAccent,
+            child: SingleChildScrollView(
+              child: Text(
+                displayMessage,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: isEliminatedInfo ? const Color(0xFFFCD34D) : Colors.redAccent,
+                ),
               ),
             ),
           ),
