@@ -1,4 +1,8 @@
 import 'dart:async';
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -38,7 +42,9 @@ class _NightScreenState extends State<NightScreen> {
   void initState() {
     super.initState();
     // Listen for private result events directly to pop dialogs
-    _investigationSub = PusherService.instance.onInvestigationResult.listen((data) {
+    _investigationSub = PusherService.instance.onInvestigationResult.listen((
+      data,
+    ) {
       if (!mounted) return;
       _showResultDialog(context, data['result'] as String? ?? 'UNKNOWN');
     });
@@ -53,7 +59,7 @@ class _NightScreenState extends State<NightScreen> {
         context,
         isDoctor ? 'SUCCESS_DOC' : 'FAIL_DOC',
         customTitle: 'Nurse Check',
-        customText: isDoctor 
+        customText: isDoctor
             ? 'You found the Doctor! Your powers are now linked.'
             : 'That player is not the Doctor.',
       );
@@ -69,13 +75,17 @@ class _NightScreenState extends State<NightScreen> {
   void _checkSubscription() {
     final gc = context.read<GameController>();
     if (gc.status != GameStatus.NIGHT) return;
-    
+
     final me = gc.players.firstWhere(
-      (p) => p.userId == gc.myUserId, 
-      orElse: () => const PlayerModel(userId: '', name: '', status: PlayerStatus.ELIMINATED)
+      (p) => p.userId == gc.myUserId,
+      orElse: () => const PlayerModel(
+        userId: '',
+        name: '',
+        status: PlayerStatus.ELIMINATED,
+      ),
     );
     if (!me.isAlive) return;
-    
+
     String? team;
     final role = gc.myRole;
     if (role == GameRole.MAFIA || role == GameRole.MAFIA_HELPER) {
@@ -90,7 +100,10 @@ class _NightScreenState extends State<NightScreen> {
 
     if (team != _subscribedTeam) {
       if (_subscribedTeam != null && _cachedRoomCode != null) {
-        PusherService.instance.unsubscribeFromTeamChannel(_cachedRoomCode!, _subscribedTeam!);
+        PusherService.instance.unsubscribeFromTeamChannel(
+          _cachedRoomCode!,
+          _subscribedTeam!,
+        );
       }
       _subscribedTeam = team;
       _cachedRoomCode = gc.roomCode;
@@ -103,7 +116,10 @@ class _NightScreenState extends State<NightScreen> {
   @override
   void dispose() {
     if (_subscribedTeam != null && _cachedRoomCode != null) {
-      PusherService.instance.unsubscribeFromTeamChannel(_cachedRoomCode!, _subscribedTeam!);
+      PusherService.instance.unsubscribeFromTeamChannel(
+        _cachedRoomCode!,
+        _subscribedTeam!,
+      );
     }
     _investigationSub?.cancel();
     _reporterResultSub?.cancel();
@@ -307,7 +323,10 @@ class _NightScreenState extends State<NightScreen> {
 
                 // Main Interaction Area
                 if (customWidget != null)
-                  Expanded(flex: _subscribedTeam != null ? 3 : 1, child: customWidget)
+                  Expanded(
+                    flex: _subscribedTeam != null ? 3 : 1,
+                    child: customWidget,
+                  )
                 else if (hasAction)
                   Expanded(
                     flex: _subscribedTeam != null ? 3 : 1,
@@ -334,7 +353,7 @@ class _NightScreenState extends State<NightScreen> {
                       ),
                     ),
                   ),
-                  
+
                 // Night Chat Area
                 if (_subscribedTeam != null)
                   Expanded(
@@ -343,7 +362,11 @@ class _NightScreenState extends State<NightScreen> {
                       margin: const EdgeInsets.only(top: 8),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0A0F1C),
-                        border: Border(top: BorderSide(color: themeColor.withValues(alpha: 0.2))),
+                        border: Border(
+                          top: BorderSide(
+                            color: themeColor.withValues(alpha: 0.2),
+                          ),
+                        ),
                       ),
                       child: ChatWidget(teamChannel: _subscribedTeam),
                     ),
@@ -378,13 +401,23 @@ class _NightScreenState extends State<NightScreen> {
                                   voteType,
                                 );
                                 if (!context.mounted) return;
-                                
+
                                 // HTTP return can be a fallback, but Pusher handles most of these now
-                                if (result != null && result != 'CITIZEN' && result != 'MAFIA' && voteType != 'COP_INVESTIGATE' && voteType != 'REPORTER_EXPOSE' && voteType != 'NURSE_ACTION') {
+                                if (result != null &&
+                                    result != 'CITIZEN' &&
+                                    result != 'MAFIA' &&
+                                    voteType != 'COP_INVESTIGATE' &&
+                                    voteType != 'REPORTER_EXPOSE' &&
+                                    voteType != 'NURSE_ACTION') {
                                   _showResultDialog(context, result);
                                 }
 
-                                if (['COP_INVESTIGATE', 'REPORTER_EXPOSE', 'BOUNTY_HUNTER_VIP'].contains(voteType) && mounted) {
+                                if ([
+                                      'COP_INVESTIGATE',
+                                      'REPORTER_EXPOSE',
+                                      'BOUNTY_HUNTER_VIP',
+                                    ].contains(voteType) &&
+                                    mounted) {
                                   // Even if the result string is null, if the call didn't throw an error, we completed it
                                   if (controller.error == null) {
                                     setState(() => _hasLockedAction = true);
@@ -417,12 +450,29 @@ class _NightScreenState extends State<NightScreen> {
                         isSelected: false,
                         isDisabled: !canVote,
                         accentColor: themeColor,
+<<<<<<< Updated upstream
                         onPressed: () {
                           if (canVote) {
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => const HitmanScreen(),
                               ),
+=======
+                        onPressed: () async {
+                          if (canVote &&
+                              _hitmanTargets.length == 2 &&
+                              _hitmanRoleGuess1 != null &&
+                              _hitmanRoleGuess2 != null) {
+                            final result = await controller.submitVote(
+                              voteType,
+                              overrideTargetMeta: {
+                                'targets': _hitmanTargets,
+                                'roles': [
+                                  _hitmanRoleGuess1!,
+                                  _hitmanRoleGuess2!,
+                                ],
+                              },
+>>>>>>> Stashed changes
                             );
                           }
                         },
@@ -469,7 +519,12 @@ class _NightScreenState extends State<NightScreen> {
     );
   }
 
-  void _showResultDialog(BuildContext context, String result, {String? customTitle, String? customText}) {
+  void _showResultDialog(
+    BuildContext context,
+    String result, {
+    String? customTitle,
+    String? customText,
+  }) {
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -548,23 +603,25 @@ class _InvestigationResultDialog extends StatelessWidget {
     final isMafia = result == 'MAFIA' || result == 'MAFIA_HELPER';
     final isHitman = result == 'HITMAN';
     final isSuccessDoc = result == 'SUCCESS_DOC'; // Nurse
-    
-    final color = isMafia 
+
+    final color = isMafia
         ? const Color(0xFFEF4444)
         : isHitman
-            ? const Color(0xFFF97316)
-            : isSuccessDoc
-                ? const Color(0xFF10B981)
-                : const Color(0xFF3B82F6);
-                
-    final String defaultTitle = isSuccessDoc ? 'SUCCESS' : 'INVESTIGATION RESULT';
-    final String defaultText = isSuccessDoc 
+        ? const Color(0xFFF97316)
+        : isSuccessDoc
+        ? const Color(0xFF10B981)
+        : const Color(0xFF3B82F6);
+
+    final String defaultTitle = isSuccessDoc
+        ? 'SUCCESS'
+        : 'INVESTIGATION RESULT';
+    final String defaultText = isSuccessDoc
         ? 'You have successfully found the Doctor.'
         : isMafia
-            ? 'The target player is aligned with the Mafia.'
-            : isHitman
-                ? 'The target player is the Hitman.'
-                : 'The target player appears to be a Town role.';
+        ? 'The target player is aligned with the Mafia.'
+        : isHitman
+        ? 'The target player is the Hitman.'
+        : 'The target player appears to be a Town role.';
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -587,9 +644,11 @@ class _InvestigationResultDialog extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                isMafia ? Icons.warning_rounded 
-                : isSuccessDoc ? Icons.check_circle_rounded
-                : Icons.search_rounded,
+                isMafia
+                    ? Icons.warning_rounded
+                    : isSuccessDoc
+                    ? Icons.check_circle_rounded
+                    : Icons.search_rounded,
                 color: color,
                 size: 28,
               ),
@@ -647,7 +706,6 @@ class _InvestigationResultDialog extends StatelessWidget {
 }
 
 // ─── HITMAN STRIKE OVERLAY ────────────────────────────────────────────────────
-
 
 class _HitmanStrikeOverlay extends StatefulWidget {
   final Map<String, dynamic> data;
